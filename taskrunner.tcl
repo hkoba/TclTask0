@@ -260,14 +260,24 @@ snit::type TaskRunner {
 
     method age name {
         if {[dict exists $myDeps $name age]} {
-            dict get $myDeps $name age
-        } elseif {[file exists $name]} {
-	    expr {1.0/[file mtime $name]}
-	} elseif {[dict exists $myDeps $name]} {
-	    return Inf
-	} else {
-	    error "Unknown node or file: $name"
-	}
+            return [dict get $myDeps $name age]
+        }
+        if {[dict exists $myDeps $name check]} {
+            $self target do check $name
+            if {[dict exists $myDeps $name age]} {
+                return [dict get $myDeps $name age]
+            } else {
+                return Inf
+            }
+        } else {
+            if {[file exists $name]} {
+                expr {1.0/[file mtime $name]}
+            } elseif {[dict exists $myDeps $name]} {
+                return Inf
+            } else {
+                error "Unknown node or file: $name"
+            }
+        }
     }
 
     #----------------------------------------
