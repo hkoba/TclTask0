@@ -1,10 +1,10 @@
-dependency.tcl - small tcl(snit) library for Make-like build tool.
+TclTaskRunner.tcl - small tcl(snit) library for Make-like build tool.
 ====================
 
 This code is a derived work of make.awk, found in [AWK book][awkbook].
 See make.awk in [its sourc codes][awkbook-src].
 
-dependency.tcl is implemented on [snit][snit], so you can easily embed this as
+TclTaskRunner.tcl is implemented on [snit][snit], so you can easily embed this as
 sub object/delegation target of snit object tree.
 
 Usage
@@ -13,7 +13,7 @@ Usage
 ```tcl
 
 # Create an instance.
-Dependency dep
+TclTaskRunner dep
 
 # Add dependencies. (You can use target($@), head of dep($<) and alldeps($^))
 dep add a.o {a.c a.h} {cc -c $< -o $@}
