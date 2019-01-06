@@ -8,7 +8,7 @@ namespace import tcltest::*
 set testScript [file normalize [info script]]
 
 test load "Make sure it is loadable." {
-    source [file dirname [file dirname $testScript]]/taskrunner.tcl
+    source [file dirname [file dirname $testScript]]/TclTaskRunner.tcl
 } ""
 
 
@@ -17,7 +17,7 @@ set C 0
 
 test $THEME-basic-[incr C] "target add -> target list" {
 
-    TaskRunner dep -quiet yes
+    TclTaskRunner dep -quiet yes
 
     dep target add varX depends {} check {
         info exists ::varX

@@ -8,7 +8,7 @@
 package require snit
 package require struct::list
 
-snit::type TaskRunner {
+snit::type TclTaskRunner {
     option -quiet no
     option -dryrun no
     option -debug 0
@@ -319,7 +319,7 @@ snit::type TaskRunner {
 
 if {![info level] && [info script] eq $::argv0} {
     apply {{} {
-        TaskRunner dep {*}[TaskRunner::parsePosixOpts ::argv]
+        TclTaskRunner dep {*}[TclTaskRunner::parsePosixOpts ::argv]
         if {[llength $::argv]} {
             set ::argv [lassign $::argv fileName]
         } else {
@@ -328,7 +328,7 @@ if {![info level] && [info script] eq $::argv0} {
         if {![file exists $fileName]} {
             error "Can't find $fileName"
         }
-        dep configurelist [TaskRunner::parsePosixOpts ::argv]
+        dep configurelist [TclTaskRunner::parsePosixOpts ::argv]
         if {[dep cget -debug]} {
             puts "sourcing $fileName"
         }

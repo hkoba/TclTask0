@@ -1,4 +1,4 @@
-#!/usr/bin/env taskrunner.tcl
+#!/usr/bin/env TclTaskRunner.tcl
 # -*- coding: utf-8 -*-
 
 proc cc args {exec gcc {*}$args}
@@ -20,7 +20,7 @@ dep method hello args {
 }
 
 # This works too. But affects other instances too (if it exists).
-snit::method TaskRunner hello2 args {
+snit::method TclTaskRunner hello2 args {
     puts [list Another hello $args]
     return OK2
 }
