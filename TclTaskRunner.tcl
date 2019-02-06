@@ -17,7 +17,7 @@ snit::type TclTaskRunner {
     option -known-keys ""; # For user extended keys
     variable myKnownKeysDict []
     typevariable ourRequiredKeysList [set KEYS [list depends action]]
-    typevariable ourKnownKeysList [list {*}$KEYS check age actionRes checkRes]
+    typevariable ourKnownKeysList [list {*}$KEYS check]
 
     variable myDeps [dict create]
 
@@ -59,11 +59,6 @@ snit::type TclTaskRunner {
 	} else {
 	    uplevel 1 [list $cmd {*}$args]
 	}
-    }
-
-    variable myLogUpdatedList []
-    method {loglist updated} {} {
-        set myLogUpdatedList
     }
 
     method {target list} {} {
@@ -122,72 +117,110 @@ snit::type TclTaskRunner {
         set errors
     }
 
-    method update {name {visited ""}} {
-        if {$visited eq ""} {
-            $self reset
-            if {$options(-debug)} {
-                puts $options(-debug-fh) [list deps: $myDeps]
-            }
+    #========================================
+
+    method update {name {contextVar ""} args} {
+        if {$contextVar ne ""} {
+            upvar 1 $contextVar ctx
+        } else {
+            set ctx [$self context new {*}$args]
         }
 	if {![dict exists $myDeps $name]} {
 	    return 0
 	}
 
 	set changed []
-	dict set visited $name 1
+	dict set ctx visited $name 1
 	set depends [dict get $myDeps $name depends]
 	foreach pred $depends {
-	    if {[set v [dict-default $visited $pred 0]] == 0} {
-		$self update $pred $visited
+	    if {[set v [dict-default [dict get $ctx visited] $pred 0]] == 0} {
+		$self update $pred ctx
 	    } elseif {$v == 1} {
 		error "Task $pred and $name are circularly defined!"
 	    }
-	    if {$options(-debug)} {
-		set diff [expr {[$self age $name] - [$self age $pred]}]
-		puts $options(-debug-fh) "Age diff of target($name)-pred($pred)=($diff)"
-	    }
+
 	    # If predecessor is younger than the target,
 	    # target should be refreshed.
-	    if {[$self age $pred] < [$self age $name]} {
+	    if {[set prevAge [$self age $pred ctx]]
+                < [set thisAge [$self age $name ctx]]} {
 		lappend changed $pred
-	    }
+	    } else {
+                if {$options(-debug)} {
+                    puts $options(-debug-fh) [list Not changed $pred \
+                                                  prev $prevAge this $thisAge]
+                }
+            }
 	}
-	dict set visited $name 2
+	dict set ctx visited $name 2
 
 	if {[llength $changed] || [llength $depends] == 0} {
             if {$options(-debug)} {
                 if {[llength $changed]} {
-                    puts "do action $name because changed=($changed)"
+                    puts $options(-debug-fh) "do action $name because changed=($changed)"
                 } else {
-                    puts "do action $name because it has no dependencies"
+                    puts $options(-debug-fh) "do action $name because it has no dependencies"
                 }
             }
-	    $self target do action $name
-	    return 1
-	}
-	return 0
-    }
-
-    method reset {} {
-        set myLogUpdatedList []
-        foreach target [dict keys $myDeps] {
-            dict unset myDeps $target age
+	    $self target do action $name ctx
+	} else {
+            if {$options(-debug)} {
+                puts $options(-debug-fh) [list not yet updated $name]
+            }
+        }
+        if {$contextVar eq ""} {
+            set ctx
         }
     }
 
-    method {target do action} target {
+    #========================================
+    method {context new} args {
+        if {[llength $args] % 2 != 0} {
+            error "Odd number of context arguments: $args"
+        }
+        dict create {*}$args \
+            visited [dict create] state [dict create] updated []
+    }
+
+    method {context set-state} {contextVar target key value} {
+        upvar 1 $contextVar ctx
+        dict set ctx state $target $key $value
+    }
+    
+    method {context fetch-state} {contextVar target key} {
+        upvar 1 $contextVar ctx
+        upvar 1 $key result
+        if {[dict exists $ctx state $target $key]} {
+            set result [dict get $ctx state $target $key]
+            return 1
+        } else {
+            return 0
+        }
+    }
+
+    #========================================
+
+    method {target do action} {target contextVar} {
+        upvar 1 $contextVar ctx
         set script [$self target script-for action $target]
 	if {!$options(-quiet)} {
-	    puts $options(-debug-fh) $script
+            if {$options(-debug)} {
+                puts $options(-debug-fh) [list target $target script $script]
+            } else {
+                puts $options(-debug-fh) $script
+            }
 	}
 	if {!$options(-dryrun)} {
             # XXX: make-lambda?
-            apply [list {self target} $script] $self $target
+            set res [apply [list {self target} $script] $self $target]
+            $self context set-state ctx $target action $res
+            if {$options(-debug)} {
+                puts $options(-debug-fh) [list ==> $res]
+            }
 
-            # After action, do check shoul be called
-            $self target do check $target
+            # After action, do check should be called again.
+            $self target do check $target ctx
 	}
-        lappend myLogUpdatedList $target
+        dict lappend ctx updated $target
     }
 
     method {target script-for action} target {
@@ -212,20 +245,21 @@ snit::type TclTaskRunner {
         $self target subst-script $target $script
     }
 
-    method {target do check} target {
+    method {target do check} {target contextVar} {
         if {[set script [$self target script-for check $target]] eq ""} return
+        upvar 1 $contextVar ctx
         
         set lambda [$self make-lambda $script target $target]
         set resList [{*}$lambda]
+        $self context set-state ctx $target check $resList
         if {$resList ne ""} {
             set rest [lassign $resList bool]
             if {$bool} {
-                dict set myDeps $target age [set age [clock microseconds]]
+                $self context set-state ctx $target age [set age [clock microseconds]]
                 if {$options(-debug)} {
-                    puts $options(-debug-fh) "target age is updated: $target age $age"
+                    puts $options(-debug-fh) "target age is updated: $target age $age; $ctx"
                 }
             }
-            dict set myDeps $target checkRes $rest
         }
     }
 
@@ -258,14 +292,17 @@ snit::type TclTaskRunner {
         list apply [list $argVarList $script] {*}$argValueList
     }
 
-    method age name {
-        if {[dict exists $myDeps $name age]} {
-            return [dict get $myDeps $name age]
+    #========================================
+
+    method age {name contextVar} {
+        upvar 1 $contextVar ctx
+        if {[$self context fetch-state ctx $name age]} {
+            return $age
         }
         if {[dict exists $myDeps $name check]} {
-            $self target do check $name
-            if {[dict exists $myDeps $name age]} {
-                return [dict get $myDeps $name age]
+            $self target do check $name ctx
+            if {[$self context fetch-state ctx $name age]} {
+                return $age
             } else {
                 return Inf
             }
