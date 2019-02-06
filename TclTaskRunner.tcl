@@ -21,6 +21,29 @@ snit::type TclTaskRunner {
 
     variable myDeps [dict create]
 
+    variable myWorker ""
+    constructor args {
+        if {[set wrk [from args -worker ""]] ne ""} {
+            install myWorker using set wrk
+        } else {
+            install myWorker using list interp eval {}
+        }
+        
+        $self configurelist $args
+
+        {*}$myWorker [list namespace eval ::TclTaskRunner {}]
+        {*}$myWorker [list proc ::TclTaskRunner::DO {self ck check do action} {
+            set rc [catch $check __RESULT__]
+            if {$rc ni [list 0 2]} {
+                return [list no rc $rc error $__RESULT__]
+            } elseif {[lindex $__RESULT__ 0]} {
+                return yes
+            } else {
+                eval $action
+            }
+        }]
+    }
+
     #----------------------------------------
     method dispatch {argList defaultCommand args} {
         if {[llength $args] % 2 != 0} {
@@ -211,7 +234,7 @@ snit::type TclTaskRunner {
 	}
 	if {!$options(-dryrun)} {
             # XXX: make-lambda?
-            set res [apply [list {self target} $script] $self $target]
+            set res [{*}$myWorker [list apply [list {self target} $script] $self $target]]
             $self context set-state ctx $target action $res
             if {$options(-debug)} {
                 puts $options(-debug-fh) [list ==> $res]
@@ -226,18 +249,9 @@ snit::type TclTaskRunner {
     method {target script-for action} target {
         set action [dict get $myDeps $target action]
         set script [if {[dict exists $myDeps $target check]} {
-            __EXPAND {
-                set rc [catch {@COND@} __RESULT__]
-                if {$rc ni [list 0 2]} {
-                    return [list no rc $rc error $__RESULT__]
-                } elseif {[lindex $__RESULT__ 0]} {
-                    return yes
-                } else {
-                    @ACTION@
-                }
-            } \
-                @COND@ [dict get $myDeps $target check] \
-                @ACTION@ $action
+            list ::TclTaskRunner::DO $self \
+                check [dict get $myDeps $target check] \
+                do $action
         } else {
             set action
         }]
@@ -250,7 +264,7 @@ snit::type TclTaskRunner {
         upvar 1 $contextVar ctx
         
         set lambda [$self make-lambda $script target $target]
-        set resList [{*}$lambda]
+        set resList [{*}$myWorker $lambda]
         $self context set-state ctx $target check $resList
         if {$resList ne ""} {
             set rest [lassign $resList bool]
