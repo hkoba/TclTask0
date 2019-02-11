@@ -15,7 +15,7 @@ snit::type TclTaskRunner {
     option -debug-fh stdout
 
     option -known-keys ""; # For user extended keys
-    variable myKnownKeysDict []
+    variable myKnownKeysDict [dict create]
     typevariable ourRequiredKeysList [set KEYS [list depends action]]
     typevariable ourKnownKeysList [list {*}$KEYS check]
 
@@ -220,7 +220,7 @@ snit::type TclTaskRunner {
             lappend errors "Mandatory keys are missing: $missingKeys"
         }
         set unknownKeys []
-        if {$myKnownKeysDict eq ""} {
+        if {![dict size $myKnownKeysDict]} {
             foreach k [list {*}$options(-known-keys) {*}$ourKnownKeysList] {
                 dict set myKnownKeysDict $k 1
             }
