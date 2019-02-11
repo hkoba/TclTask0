@@ -44,6 +44,7 @@ snit::type TclTaskRunner {
 	if {[dict exists $myDeps $name]} {
 	    error "Task $name is multiply defined!"
 	}
+        # XXX: [llength $args] == 1 form.
         set dict [dict create {*}$args]
         if {[set errors [$self task verify $dict]] ne ""} {
             error "Task $name has error: $errors"
