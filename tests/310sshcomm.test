@@ -20,7 +20,7 @@ set outerDir [file dirname [file dirname [file dirname $testScript]]]
 
 set sshTestDir [default ::env(TCLTASK_SSHTEST_DIR) $outerDir/sshtest]
 
-set dockerImage [default ::env(TCLTASK_SSHTEST_DOCKER_IMG) hkoba/ubuntu-sshd-keyonly]
+set dockerImage [default ::env(TCLTASK_SSHTEST_DOCKER_IMG) hkoba501/ubuntu-sshd-tcl]
 
 testConstraint has_sshcomm \
     [file exists $outerDir/sshcomm/sshcomm.tcl]
