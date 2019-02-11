@@ -21,6 +21,12 @@ snit::type TclTaskRunner {
 
     variable myDeps [dict create]
 
+    method dputs args {$self dputsLevel 1 {*}$args}
+    method dputsLevel {level args} {
+        if {$options(-debug) < $level} return
+        puts $options(-debug-fh) $args
+    }
+
     variable myWorker ""
     constructor args {
         if {[set wrk [from args -worker ""]] ne ""} {
@@ -168,27 +174,20 @@ snit::type TclTaskRunner {
                 < [set thisAge [$self age $name ctx]]} {
 		lappend changed $pred
 	    } else {
-                if {$options(-debug)} {
-                    puts $options(-debug-fh) [list Not changed $pred \
-                                                  prev $prevAge this $thisAge]
-                }
+                $self dputs  Not changed $pred prev $prevAge this $thisAge
             }
 	}
 	dict set ctx visited $name 2
 
 	if {[llength $changed] || [llength $depends] == 0} {
-            if {$options(-debug)} {
-                if {[llength $changed]} {
-                    puts $options(-debug-fh) "do action $name because changed=($changed)"
-                } else {
-                    puts $options(-debug-fh) "do action $name because it has no dependencies"
-                }
+            if {[llength $changed]} {
+                $self dputs do action $name because changed=($changed)
+            } else {
+                $self dputs do action $name because it has no dependencies
             }
 	    $self target do action $name ctx
 	} else {
-            if {$options(-debug)} {
-                puts $options(-debug-fh) [list not yet updated $name]
-            }
+            $self dputs not yet updated $name
         }
         if {$contextVar eq ""} {
             set ctx
@@ -225,20 +224,17 @@ snit::type TclTaskRunner {
     method {target do action} {target contextVar} {
         upvar 1 $contextVar ctx
         set script [$self target script-for action $target]
-	if {!$options(-quiet)} {
-            if {$options(-debug)} {
-                puts $options(-debug-fh) [list target $target script $script]
-            } else {
-                puts $options(-debug-fh) $script
-            }
+	if {$options(-quiet)} {
+            $self dputs target $target script $script
+        } else {
+            puts $options(-debug-fh) $script
 	}
 	if {!$options(-dryrun)} {
             # XXX: make-lambda?
             set res [{*}$myWorker [list apply [list {self target} $script] $self $target]]
             $self context set-state ctx $target action $res
-            if {$options(-debug)} {
-                puts $options(-debug-fh) [list ==> $res]
-            }
+
+            $self dputs ==> $res
 
             # After action, do check should be called again.
             $self target do check $target ctx
@@ -270,9 +266,7 @@ snit::type TclTaskRunner {
             set rest [lassign $resList bool]
             if {$bool} {
                 $self context set-state ctx $target age [set age [clock microseconds]]
-                if {$options(-debug)} {
-                    puts $options(-debug-fh) "target age is updated: $target age $age; $ctx"
-                }
+                $self dputs target age is updated: $target age $age
             }
         }
     }
