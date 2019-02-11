@@ -64,11 +64,16 @@ snit::type TclTaskRunner {
 
     method update {name {contextVar ""} args} {
         if {$contextVar ne ""} {
+            # Called from dependency.
             upvar 1 $contextVar ctx
         } else {
+            # Root of this update.
             set ctx [$self context new {*}$args]
         }
 	if {![dict exists $myDeps $name]} {
+            if {$contextVar eq ""} {
+                error "Unknown file or target: $name"
+            }
 	    return 0
 	}
 
