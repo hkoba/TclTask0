@@ -32,6 +32,9 @@ snit::type TclTaskRunner {
 
     #========================================
 
+    method yes args {$self dputs {*}$args; expr {"yes"}}
+    method no args {$self dputs {*}$args; expr {"no"}}
+
     method dputs args {$self dputsLevel 1 {*}$args}
     method dputsLevel {level args} {
         if {$options(-debug) < $level} return
@@ -90,15 +93,21 @@ snit::type TclTaskRunner {
 	}
 	dict set ctx visited $name 2
 
-	if {[llength $changed] || [llength $depends] == 0} {
-            if {[llength $changed]} {
-                $self dputs do action $name because changed=($changed)
-            } else {
-                $self dputs do action $name because it has no dependencies
-            }
-	    $self target do action $name ctx
+	if {[if {[llength $changed]} {
+
+            $self yes do action $name because changed=($changed)
+            
+        } elseif {[llength $depends] == 0} {
+
+            $self yes do action $name because it has no dependencies
+
 	} else {
-            $self dputs not yet updated $name
+
+            $self no not yet updated $name
+
+        }]} {
+
+            $self target do action $name ctx
         }
         if {$contextVar eq ""} {
             set ctx
