@@ -197,7 +197,8 @@ snit::type TclTaskRunner {
         if {$resList ne ""} {
             set rest [lassign $resList bool]
             if {$bool} {
-                $self context set-state ctx $target age [set age [clock microseconds]]
+                $self context set-state ctx $target age \
+                    [set age [clock microseconds]]
                 $self dputs target age is updated: $target age $age
             }
         }
