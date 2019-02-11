@@ -1,0 +1,29 @@
+#!/usr/bin/env tclsh
+
+package require fileutil
+
+package require tcltest
+namespace import tcltest::*
+
+set testScript [file normalize [info script]]
+set testDir [file rootname $testScript]
+set libDir [file dirname [file dirname $testScript]]
+set runnerFn $libDir/TclTaskRunner.tcl
+
+# Ensure TclTaskRunner.tcl exists in PATH
+set ::env(PATH) $libDir:$::env(PATH)
+
+test tcltask-run "run without arguments" {
+
+    exec $testDir/TclTask.tcl
+    
+    file exists $testDir/prog
+} 1
+
+test tcltask-clean "run with clean" {
+
+    exec $testDir/TclTask.tcl clean
+    
+    file exists $testDir/prog
+} 0
+

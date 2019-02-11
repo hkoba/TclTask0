@@ -383,10 +383,12 @@ if {![info level] && [info script] eq $::argv0} {
         if {![file exists $fileName]} {
             error "Can't find $fileName"
         }
+        set realFile [file normalize $fileName]
+        cd [file dirname $realFile]
         dep configurelist [TclTaskRunner::parsePosixOpts ::argv]
         if {[dep cget -debug]} {
-            puts "sourcing $fileName"
+            puts "sourcing $realFile"
         }
-        source $fileName
+        source $realFile
     }}
 }
