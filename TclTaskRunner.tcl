@@ -21,53 +21,24 @@ snit::type TclTaskRunner {
 
     variable myDeps [dict create]
 
+    variable myWorker ""
+
+    #========================================
+    constructor args {
+        $self worker install [from args -worker ""]
+        
+        $self configurelist $args
+    }
+
+    #========================================
+
     method dputs args {$self dputsLevel 1 {*}$args}
     method dputsLevel {level args} {
         if {$options(-debug) < $level} return
         puts $options(-debug-fh) $args
     }
 
-    variable myWorker ""
-    constructor args {
-        if {[set wrk [from args -worker ""]] ne ""} {
-            install myWorker using set wrk
-        } else {
-            install myWorker using list interp eval {}
-        }
-        
-        $self configurelist $args
-
-        {*}$myWorker [list namespace eval ::TclTaskRunner {}]
-        {*}$myWorker [list proc ::TclTaskRunner::DO {self ck check do action} {
-            set rc [catch $check __RESULT__]
-            if {$rc ni [list 0 2]} {
-                return [list no rc $rc error $__RESULT__]
-            } elseif {[lindex $__RESULT__ 0]} {
-                return yes
-            } else {
-                eval $action
-            }
-        }]
-    }
-
-    #----------------------------------------
-
-    method {target list} {} {
-        dict keys $myDeps
-    }
-
-    # synonyms of [$self target dependency $target]
-    method {target deps} target {$self target dependency $target}
-    method {dependency list} target {$self target dependency $target}
-
-    method {target dependency} target {
-        dict get $myDeps $target depends
-    }
-
-    # For shorthand
-    method add {name depends {action ""} args} {
-        $self target add $name depends $depends action $action {*}$args
-    }
+    #========================================
 
     method {target add} {name args} {
 	if {[dict exists $myDeps $name]} {
@@ -80,32 +51,9 @@ snit::type TclTaskRunner {
 	dict set myDeps $name $dict
     }
 
-    method {task verify} dict {
-        set errors []
-        set missingKeys []
-        foreach k $ourRequiredKeysList {
-            if {![dict exists $dict $k]} {
-                lappend missingKeys $k
-            }
-        }
-        if {$missingKeys ne ""} {
-            lappend errors "Mandatory keys are missing: $missingKeys"
-        }
-        set unknownKeys []
-        if {$myKnownKeysDict eq ""} {
-            foreach k [list {*}$options(-known-keys) {*}$ourKnownKeysList] {
-                dict set myKnownKeysDict $k 1
-            }
-        }
-        foreach k [dict keys $dict] {
-            if {![dict exists $myKnownKeysDict $k]} {
-                lappend unknownKeys $k
-            }
-        }
-        if {$unknownKeys ne ""} {
-            lappend errors "Unknown keys: $unknownKeys"
-        }
-        set errors
+    # Shorthand form of target add.
+    method add {name depends {action ""} args} {
+        $self target add $name depends $depends action $action {*}$args
     }
 
     #========================================
@@ -156,114 +104,6 @@ snit::type TclTaskRunner {
         }
     }
 
-    #========================================
-    method {context new} args {
-        if {[llength $args] % 2 != 0} {
-            error "Odd number of context arguments: $args"
-        }
-        dict create {*}$args \
-            visited [dict create] state [dict create] updated []
-    }
-
-    method {context set-state} {contextVar target key value} {
-        upvar 1 $contextVar ctx
-        dict set ctx state $target $key $value
-    }
-    
-    method {context fetch-state} {contextVar target key} {
-        upvar 1 $contextVar ctx
-        upvar 1 $key result
-        if {[dict exists $ctx state $target $key]} {
-            set result [dict get $ctx state $target $key]
-            return 1
-        } else {
-            return 0
-        }
-    }
-
-    #========================================
-
-    method {target do action} {target contextVar} {
-        upvar 1 $contextVar ctx
-        set script [$self target script-for action $target]
-	if {$options(-quiet)} {
-            $self dputs target $target script $script
-        } else {
-            puts $options(-debug-fh) $script
-	}
-	if {!$options(-dryrun)} {
-            # XXX: make-lambda?
-            set res [{*}$myWorker [list apply [list {self target} $script] $self $target]]
-            $self context set-state ctx $target action $res
-
-            $self dputs ==> $res
-
-            # After action, do check should be called again.
-            $self target do check $target ctx
-	}
-        dict lappend ctx updated $target
-    }
-
-    method {target script-for action} target {
-        set action [dict get $myDeps $target action]
-        set script [if {[dict exists $myDeps $target check]} {
-            list ::TclTaskRunner::DO $self \
-                check [dict get $myDeps $target check] \
-                do $action
-        } else {
-            set action
-        }]
-        
-        $self target subst-script $target $script
-    }
-
-    method {target do check} {target contextVar} {
-        if {[set script [$self target script-for check $target]] eq ""} return
-        upvar 1 $contextVar ctx
-        
-        set lambda [$self make-lambda $script target $target]
-        set resList [{*}$myWorker $lambda]
-        $self context set-state ctx $target check $resList
-        if {$resList ne ""} {
-            set rest [lassign $resList bool]
-            if {$bool} {
-                $self context set-state ctx $target age [set age [clock microseconds]]
-                $self dputs target age is updated: $target age $age
-            }
-        }
-    }
-
-    method {target script-for check} target {
-        $self target subst-script $target \
-            [dict-default [dict get $myDeps $target] check ""]
-    }
-
-
-    method {target subst-script} {target script args} {
-	set deps [dict get $myDeps $target depends]
-        __EXPAND $script \
-            \$@ $target \
-            \$< [lindex $deps 0] \
-            \$^ $deps \
-            {*}$args
-    }
-
-    proc __EXPAND {template args} {
-	string map $args $template
-    }
-
-    method make-lambda {script args} {
-        set argVarList [list self]
-        set argValueList [list $self]
-        foreach {var val} $args {
-            lappend argVarList $var
-            lappend argValueList $val
-        }
-        list apply [list $argVarList $script] {*}$argValueList
-    }
-
-    #========================================
-
     method age {name contextVar} {
         upvar 1 $contextVar ctx
         if {[$self context fetch-state ctx $name age]} {
@@ -291,7 +131,20 @@ snit::type TclTaskRunner {
         {*}$myWorker [list file $cmd {*}$args]
     }
 
-    #----------------------------------------
+    #========================================
+   
+    method {target list} {} {
+        dict keys $myDeps
+    }
+
+    # synonyms of [$self target dependency $target]
+    method {target deps} target {$self target dependency $target}
+    method {dependency list} target {$self target dependency $target}
+
+    method {target dependency} target {
+        dict get $myDeps $target depends
+    }
+
     method forget name {
 	if {![dict exists $myDeps $name]} {
 	    return 0
@@ -303,7 +156,155 @@ snit::type TclTaskRunner {
     method names {} {
 	dict keys $myDeps
     }
-    #----------------------------------------
+    #========================================
+
+    method {target do action} {target contextVar} {
+        upvar 1 $contextVar ctx
+        set script [$self target script-for action $target]
+	if {$options(-quiet)} {
+            $self dputs target $target script $script
+        } else {
+            puts $options(-debug-fh) $script
+	}
+	if {!$options(-dryrun)} {
+            set res [$self worker apply-to $target $script]
+            $self context set-state ctx $target action $res
+
+            $self dputs ==> $res
+
+            # After action, do check should be called again.
+            $self target do check $target ctx
+	}
+        dict lappend ctx updated $target
+    }
+
+    method {target script-for action} target {
+        set action [dict get $myDeps $target action]
+        set script [if {[dict exists $myDeps $target check]} {
+            list ::TclTaskRunner::DO $self \
+                check [dict get $myDeps $target check] \
+                do $action
+        } else {
+            set action
+        }]
+        
+        $self script subst $target $script
+    }
+
+    method {target do check} {target contextVar} {
+        if {[set script [$self target script-for check $target]] eq ""} return
+        upvar 1 $contextVar ctx
+        
+        set resList [$self worker apply-to $target $script]
+        $self context set-state ctx $target check $resList
+        if {$resList ne ""} {
+            set rest [lassign $resList bool]
+            if {$bool} {
+                $self context set-state ctx $target age [set age [clock microseconds]]
+                $self dputs target age is updated: $target age $age
+            }
+        }
+    }
+
+    method {target script-for check} target {
+        $self script subst $target \
+            [dict-default [dict get $myDeps $target] check ""]
+    }
+
+    #========================================
+    method {task verify} dict {
+        set errors []
+        set missingKeys []
+        foreach k $ourRequiredKeysList {
+            if {![dict exists $dict $k]} {
+                lappend missingKeys $k
+            }
+        }
+        if {$missingKeys ne ""} {
+            lappend errors "Mandatory keys are missing: $missingKeys"
+        }
+        set unknownKeys []
+        if {$myKnownKeysDict eq ""} {
+            foreach k [list {*}$options(-known-keys) {*}$ourKnownKeysList] {
+                dict set myKnownKeysDict $k 1
+            }
+        }
+        foreach k [dict keys $dict] {
+            if {![dict exists $myKnownKeysDict $k]} {
+                lappend unknownKeys $k
+            }
+        }
+        if {$unknownKeys ne ""} {
+            lappend errors "Unknown keys: $unknownKeys"
+        }
+        set errors
+    }
+
+    #========================================
+
+    method {context new} args {
+        if {[llength $args] % 2 != 0} {
+            error "Odd number of context arguments: $args"
+        }
+        dict create {*}$args \
+            visited [dict create] state [dict create] updated []
+    }
+
+    method {context set-state} {contextVar target key value} {
+        upvar 1 $contextVar ctx
+        dict set ctx state $target $key $value
+    }
+    
+    method {context fetch-state} {contextVar target key} {
+        upvar 1 $contextVar ctx
+        upvar 1 $key result
+        if {[dict exists $ctx state $target $key]} {
+            set result [dict get $ctx state $target $key]
+            return 1
+        } else {
+            return 0
+        }
+    }
+
+    #========================================
+
+    method {worker apply-to} {target script} {
+        {*}$myWorker [list apply [list {self target} $script] \
+                          $self $target]
+    }
+
+    method {worker install} worker {
+        if {$worker eq ""} {
+            set worker [list interp eval {}]
+        }
+
+        install myWorker using set worker
+
+        {*}$myWorker [list namespace eval ::TclTaskRunner {}]
+        {*}$myWorker [list proc ::TclTaskRunner::DO {self ck check do action} {
+            set rc [catch $check __RESULT__]
+            if {$rc ni [list 0 2]} {
+                return [list no rc $rc error $__RESULT__]
+            } elseif {[lindex $__RESULT__ 0]} {
+                return yes
+            } else {
+                eval $action
+            }
+        }]
+    }
+
+    method {script subst} {target script args} {
+	set deps [dict get $myDeps $target depends]
+        string map [list \
+                        \$@ $target \
+                        \$< [lindex $deps 0] \
+                        \$^ $deps \
+                        {*}$args
+                       ] $script
+    }
+
+    #========================================
+
     proc dict-default {dict key default} {
 	if {[dict exists $dict $key]} {
 	    dict get $dict $key
