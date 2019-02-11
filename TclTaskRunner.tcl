@@ -277,17 +277,14 @@ snit::type TclTaskRunner {
 
         install myWorker using set worker
 
-        {*}$myWorker [list namespace eval ::TclTaskRunner {}]
-        {*}$myWorker [list proc ::TclTaskRunner::DO {self ck check do action} {
-            set rc [catch $check __RESULT__]
-            if {$rc ni [list 0 2]} {
-                return [list no rc $rc error $__RESULT__]
-            } elseif {[lindex $__RESULT__ 0]} {
-                return yes
-            } else {
-                eval $action
-            }
-        }]
+        {*}$myWorker [list namespace eval $type {}]
+
+        # Send the definition of TclTaskRunner::DO to myWorker.
+        foreach cmd {DO} {
+            set nsCmd ${type}::$cmd
+            {*}$myWorker [list proc $nsCmd \
+                              [info args $nsCmd] [info body $nsCmd]]
+        }
     }
 
     method {script subst} {target script args} {
@@ -301,6 +298,17 @@ snit::type TclTaskRunner {
     }
 
     #========================================
+
+    proc DO {self ck check do action} {
+        set rc [catch $check __RESULT__]
+        if {$rc ni [list 0 2]} {
+            return [list no rc $rc error $__RESULT__]
+        } elseif {[lindex $__RESULT__ 0]} {
+            return yes
+        } else {
+            eval $action
+        }
+    }
 
     proc dict-default {dict key default} {
 	if {[dict exists $dict $key]} {
