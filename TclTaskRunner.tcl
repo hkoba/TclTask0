@@ -133,9 +133,8 @@ snit::type TclTaskRunner {
 
     #========================================
    
-    method {target list} {} {
-        dict keys $myDeps
-    }
+    method {target list} {} {dict keys $myDeps }
+    method names {} { dict keys $myDeps }
 
     # synonyms of [$self target dependency $target]
     method {target deps} target {$self target dependency $target}
@@ -153,9 +152,6 @@ snit::type TclTaskRunner {
 	return 1
     }
 
-    method names {} {
-	dict keys $myDeps
-    }
     #========================================
 
     method {target do action} {target contextVar} {
