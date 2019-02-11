@@ -1,0 +1,181 @@
+#!/usr/bin/env tclsh
+
+package require fileutil
+
+package require tcltest
+namespace import tcltest::*
+
+proc default {varName default} {
+    upvar 1 $varName var
+    if {[info exists var]} {
+        set var
+    } else {
+        set default
+    }
+}
+
+set testScript [file normalize [info script]]
+
+set outerDir [file dirname [file dirname [file dirname $testScript]]]
+
+set sshTestDir [default ::env(TCLTASK_SSHTEST_DIR) $outerDir/sshtest]
+
+set dockerImage [default ::env(TCLTASK_SSHTEST_DOCKER_IMG) hkoba/ubuntu-sshd-keyonly]
+
+testConstraint has_sshcomm \
+    [file exists $outerDir/sshcomm/sshcomm.tcl]
+
+testConstraint has_docker \
+    [expr {[auto_execok docker] ne ""
+           &&
+           ![catch {exec docker run hello-world}]}]
+
+testConstraint has_sshtest \
+    [expr {[file exists [set fn $sshTestDir/authorized_keys]]
+           && [dict get [file attributes $fn] -owner] eq "root"
+           && [file exists [set fn $sshTestDir/id_rsa]]
+           && [file readable $fn]
+       }]
+                                     
+set CONSTRAINTS {unix has_sshcomm has_docker has_sshtest}
+# foreach c $CONSTRAINTS {
+#     puts [list $c [testConstraint $c]]
+# }
+
+test load-TclTaskRunner "Make sure it is loadable." $CONSTRAINTS {
+    source [file dirname [file dirname $testScript]]/TclTaskRunner.tcl
+} ""
+
+test load-sshcomm "load sshcomm" {
+    source $outerDir/sshcomm/sshcomm.tcl
+} ""
+
+test docker-start "Start docker sshd" -constraints $CONSTRAINTS -body {
+    set dockerName [file rootname [file tail [info script]]]-[pid]
+    set dockerChan [open |[list \
+                               docker run --rm \
+                               --name $dockerName \
+                               --publish=1337:22 \
+                               --env KEYPAIR_LOGIN=true \
+                               --volume $sshTestDir/authorized_keys:/root/.ssh/authorized_keys:z \
+                               $dockerImage \
+                               2>@1 ]]
+
+    while {![fblocked $dockerChan]} {
+        if {[gets $dockerChan line] >= 0} {
+            puts "DOCKER: $line"
+            if {[regexp {^Server listening on \S+ port \d+\.} $line]} {
+                break;
+            }
+        }
+        if {[eof $dockerChan]} {
+            puts "DOCKER-STOPPED"
+            close $dockerChan
+        }
+    }
+
+    fconfigure $dockerChan -blocking 0 -buffering line
+    fileevent $dockerChan readable [list apply {chan {
+        if {[gets $chan line] >= 0} {
+            puts $line
+        }
+        if {[eof $chan]} {
+            close $chan
+        }
+    }} $dockerChan]
+
+    pid $dockerChan
+
+} -match regexp -result {^\d+$}
+
+test sshcomm-open "open sshcomm" -constraints $CONSTRAINTS -body {
+    set ssh [sshcomm::ssh root@localhost \
+                 -sshcmd [list ssh -p 1337 \
+                              -o GlobalKnownHostsFile=/dev/null \
+                              -o UserKnownHostsFile=/dev/null \
+                              -o StrictHostKeyChecking=no\
+                              -o AddKeysToAgent=no \
+                              -i $sshTestDir/id_rsa]]
+    set cid [$ssh comm new]
+} -result {1 root@localhost}
+
+set THEME taskrunner-sshcomm
+
+test $THEME-create "create" -body {
+
+    TclTaskRunner dep -quiet yes \
+        -worker [list comm::comm send $cid];# -debug 1
+
+} -result ::dep
+
+
+comm::comm send $cid {
+    
+    proc fconvert-to {outFn script args} {
+        set outFH [open $outFn w]
+        foreach fn $args {
+            set fh [open $fn]
+            while {[gets $fh _] >= 0} {
+                puts $outFH [eval $script]
+            }
+            close $fh
+        }
+        close $outFH
+    }
+    
+    proc readFile fn {
+        set fh [open $fn]
+        set data [read $fh]
+        close $fh
+        set data
+    }
+
+    proc makeFile {fn text} {
+        set outFH [open $fn w]
+        puts -nonewline $outFH $text
+        close $outFH
+    }
+    
+    makeFile a.lower {abcdefg}
+    makeFile h.lower {hijklmn}
+}
+
+test $THEME-add-targets "define targets" {
+    
+    dep target add a.upper depends {a.lower h.lower} action {
+        fconvert-to $@ {string toupper $_} $^
+    }
+    
+    list
+} ""
+
+test $THEME-update "update" {
+    
+    dep update a.upper
+    
+    comm::comm send $cid {readFile a.upper}
+} "ABCDEFG\nHIJKLMN\n"
+
+test $THEME-update "update again" {
+    
+    after [expr {1000 - [clock milliseconds] % 1000}]
+
+    comm::comm send $cid {
+        makeFile h.lower {opqrstu}
+    }
+
+    # dep configure -debug 1
+
+    dep update a.upper
+    
+    comm::comm send $cid {readFile a.upper}
+} "ABCDEFG\nOPQRSTU\n"
+
+
+test docker-stop "stop docker" {
+
+    exec docker kill $dockerName
+
+} $dockerName
+
+cleanupTests

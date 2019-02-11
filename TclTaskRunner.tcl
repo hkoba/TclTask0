@@ -321,14 +321,18 @@ snit::type TclTaskRunner {
                 return Inf
             }
         } else {
-            if {[file exists $name]} {
-                expr {1.0/[file mtime $name]}
+            if {[$self file exists $name]} {
+                expr {1.0/[$self file mtime $name]}
             } elseif {[dict exists $myDeps $name]} {
                 return Inf
             } else {
                 error "Unknown node or file: $name"
             }
         }
+    }
+
+    method file {cmd args} {
+        {*}$myWorker [list file $cmd {*}$args]
     }
 
     #----------------------------------------
