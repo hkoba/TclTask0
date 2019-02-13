@@ -62,40 +62,16 @@ test $THEME-target-add "target add" {
         makeFile [set $<] $@
     }
 
-    # file -> memory
-    dep target add ::BAR check {
-        expr {[info exists $@] && [file mtime $<] < $::MTIME($<)}
-    } depends {
-        bar.src
-    } action {
-        set ::MTIME($<) [file mtime $<]
-        set ::BAR [read_file $<]
-    }
-
-    # memory -> file
-    dep target add bar.txt depends {
-        ::BAR
-    } action {
-        makeFile [set $<] $@
-    }
-
-    # file + file -> memory
-    dep target add ::BAZ depends {
-        foo.txt bar.txt
-    } action {
-        set $@ [sum {*}[::fileutil::cat $^]]
-    }
-
     dep target list
-} [list ::FOO foo.txt ::BAR bar.txt ::BAZ]
+} [list ::FOO foo.txt]
 
 test $THEME-target-update-[incr C] "update" {
     
-    set log [dep update ::BAZ]
+    set log [dep update foo.txt]
     
-    list $::BAZ [dict get $log updated]
+    list [read_file foo.txt] [dict get $log updated]
 
-} [list [expr {$FOO_VAL + $BAR_VAL}] [list ::FOO foo.txt ::BAR bar.txt ::BAZ]]
+} [list "$FOO_VAL\n" [list ::FOO foo.txt]]
 
 #========================================
 after [expr {1000 - [clock milliseconds] % 1000}]
@@ -105,6 +81,7 @@ array set MTIME []
 
 set FOO_VAL 150
 makeFile $FOO_VAL foo.src
+unset ::FOO
 
 test $THEME-target-update-[incr C] "update file target" {
     
@@ -113,6 +90,31 @@ test $THEME-target-update-[incr C] "update file target" {
     list [dict get $log updated] [read_file foo.txt]
 
 } [list [list ::FOO foo.txt] "$FOO_VAL\n"]
+
+
+    # # file -> memory
+    # dep target add ::BAR check {
+    #     expr {[info exists $@] && [file mtime $<] < $::MTIME($<)}
+    # } depends {
+    #     bar.src
+    # } action {
+    #     set ::MTIME($<) [file mtime $<]
+    #     set ::BAR [read_file $<]
+    # }
+
+    # # memory -> file
+    # dep target add bar.txt depends {
+    #     ::BAR
+    # } action {
+    #     makeFile [set $<] $@
+    # }
+
+    # # file + file -> memory
+    # dep target add ::BAZ depends {
+    #     foo.txt bar.txt
+    # } action {
+    #     set $@ [sum {*}[::fileutil::cat $^]]
+    # }
 
 
 cleanupTests
