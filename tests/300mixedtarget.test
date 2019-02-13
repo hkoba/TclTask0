@@ -1,0 +1,119 @@
+#!/usr/bin/env tclsh
+
+package require tcltest
+namespace import tcltest::*
+
+package require fileutil
+package require struct::list
+
+set testScript [file normalize [info script]]
+
+test load "Make sure it is loadable." {
+    source [file dirname [file dirname $testScript]]/TclTaskRunner.tcl
+} ""
+
+proc read_file {fn} {
+    set fh [open $fn]
+    set data [read $fh]
+    close $fh
+    set data
+}
+
+proc sum {val args} {
+    set sum $val
+    foreach i $args {
+        incr sum $i
+    }
+    set sum
+}
+
+set THEME mixed
+set C 0
+
+test $THEME-create "create TclTaskRunner instance" {
+
+    TclTaskRunner dep -debug yes; # -quiet yes 
+
+} ::dep
+
+array set MTIME []
+set FOO_VAL 100
+set BAR_VAL 200
+makeFile $FOO_VAL foo.src
+makeFile $BAR_VAL bar.src
+
+test $THEME-target-add "target add" {
+
+    # file -> memory
+    dep target add ::FOO check {
+        expr {[info exists $@] && [info exists ::MTIME($<)]
+              && [file mtime $<] < $::MTIME($<)}
+    } depends {
+        foo.src
+    } action {
+        set ::MTIME($<) [file mtime $<]
+        set ::FOO [read_file $<]
+    }
+
+    # memory -> file
+    dep target add foo.txt depends {
+        ::FOO
+    } action {
+        makeFile [set $<] $@
+    }
+
+    # file -> memory
+    dep target add ::BAR check {
+        expr {[info exists $@] && [file mtime $<] < $::MTIME($<)}
+    } depends {
+        bar.src
+    } action {
+        set ::MTIME($<) [file mtime $<]
+        set ::BAR [read_file $<]
+    }
+
+    # memory -> file
+    dep target add bar.txt depends {
+        ::BAR
+    } action {
+        makeFile [set $<] $@
+    }
+
+    # file + file -> memory
+    dep target add ::BAZ depends {
+        foo.txt bar.txt
+    } action {
+        set $@ [sum {*}[::fileutil::cat $^]]
+    }
+
+    dep target list
+} [list ::FOO foo.txt ::BAR bar.txt ::BAZ]
+
+test $THEME-target-update-[incr C] "update" {
+    
+    set log [dep update ::BAZ]
+    
+    list $::BAZ [dict get $log updated]
+
+} [list [expr {$FOO_VAL + $BAR_VAL}] [list ::FOO foo.txt ::BAR bar.txt ::BAZ]]
+
+#========================================
+after [expr {1000 - [clock milliseconds] % 1000}]
+array unset MTIME
+array set MTIME []
+#========================================
+
+set FOO_VAL 150
+makeFile $FOO_VAL foo.src
+
+test $THEME-target-update-[incr C] "update file target" {
+    
+    set log [dep update foo.txt]
+
+    list [dict get $log updated] [read_file foo.txt]
+
+} [list [list ::FOO foo.txt] "$FOO_VAL\n"]
+
+
+cleanupTests
+
