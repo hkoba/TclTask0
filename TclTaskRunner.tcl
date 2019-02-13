@@ -306,8 +306,8 @@ snit::type TclTaskRunner {
 	set deps [dict get $myDeps $target depends]
         string map [list \
                         \$@ $target \
-                        \$< [lindex $deps 0] \
-                        \$^ $deps \
+                        \$< [string trim [lindex $deps 0]] \
+                        \$^ [lrange $deps 0 end] \
                         {*}$args
                        ] $script
     }
