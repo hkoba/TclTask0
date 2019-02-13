@@ -81,6 +81,7 @@ snit::type TclTaskRunner {
 	dict set ctx visited $name 1
 	set depends [dict get $myDeps $name depends]
 	foreach pred $depends {
+            $self dputs $name depends on $pred
 	    if {[set v [dict-default [dict get $ctx visited] $pred 0]] == 0} {
 		$self update $pred ctx
 	    } elseif {$v == 1} {
@@ -93,7 +94,7 @@ snit::type TclTaskRunner {
                 < [set thisAge [$self age $name ctx]]} {
 		lappend changed $pred
 	    } else {
-                $self dputs  Not changed $pred prev $prevAge this $thisAge
+                $self dputs  Not changed $pred age $prevAge $name $thisAge
             }
 	}
 	dict set ctx visited $name 2
@@ -108,7 +109,7 @@ snit::type TclTaskRunner {
 
 	} else {
 
-            $self no not yet updated $name
+            $self no No need to update $name
 
         }]} {
 
