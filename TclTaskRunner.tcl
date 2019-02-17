@@ -371,6 +371,7 @@ if {![info level] && [info script] eq $::argv0} {
         }
         set realFile [file normalize $fileName]
         cd [file dirname $realFile]
+        dep configure -debug [TclTaskRunner::default ::env(DEBUG) 0]
         dep configurelist [TclTaskRunner::parsePosixOpts ::argv]
         if {[dep cget -debug]} {
             puts "sourcing $realFile"
