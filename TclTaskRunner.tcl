@@ -19,6 +19,8 @@ snit::type TclTaskRunner {
     typevariable ourRequiredKeysList [set KEYS [list depends action]]
     typevariable ourKnownKeysList [list {*}$KEYS check]
 
+    option -indent "  "
+
     variable myDeps [dict create]
 
     variable myWorker ""
@@ -32,13 +34,16 @@ snit::type TclTaskRunner {
 
     #========================================
 
-    method yes args {$self dputs {*}$args; expr {"yes"}}
-    method no args {$self dputs {*}$args; expr {"no"}}
+    method yes {depth args} {$self dputs $depth {*}$args; expr {"yes"}}
+    method no {depth args} {$self dputs $depth {*}$args; expr {"no"}}
 
-    method dputs args {$self dputsLevel 1 {*}$args}
-    method dputsLevel {level args} {
+    method dputs {depth args} {$self dputsLevel 1 $depth {*}$args}
+    method dputsLevel {level depth args} {
         if {$options(-debug) < $level} return
-        puts $options(-debug-fh) $args
+        set indent [string repeat $options(-indent) $depth]
+        foreach line [split $args \n] {
+            puts $options(-debug-fh) "$indent#| $line"
+        }
     }
 
     #========================================
@@ -62,7 +67,7 @@ snit::type TclTaskRunner {
 
     #========================================
 
-    method update {name {contextVar ""} args} {
+    method update {name {contextVar ""} {depth 0} args} {
         if {$contextVar ne ""} {
             # Called from dependency.
             upvar 1 $contextVar ctx
@@ -81,62 +86,62 @@ snit::type TclTaskRunner {
 	dict set ctx visited $name 1
 	set depends [dict get $myDeps $name depends]
 	foreach pred $depends {
-            $self dputs $name depends on $pred
+            $self dputs $depth $name depends on $pred
 	    if {[set v [dict-default [dict get $ctx visited] $pred 0]] == 0} {
-		$self update $pred ctx
+		$self update $pred ctx [expr {$depth+1}]
 	    } elseif {$v == 1} {
 		error "Task $pred and $name are circularly defined!"
 	    }
 
 	    # If predecessor is younger than the target,
 	    # target should be refreshed.
-	    if {[set prevAge [$self age $pred ctx]]
-                < [set thisAge [$self age $name ctx]]} {
+	    if {[set thisMtime [$self mtime $name ctx $depth]]
+                < [set predMtime [$self mtime $pred ctx $depth]]} {
 		lappend changed $pred
 	    } else {
-                $self dputs  Not changed $pred age $prevAge $name $thisAge
+                $self dputs $depth Not changed $pred mtime $predMtime $name $thisMtime
             }
 	}
 	dict set ctx visited $name 2
 
 	if {[if {[llength $changed]} {
 
-            $self yes do action $name because changed=($changed)
+            $self yes $depth do action $name because changed=($changed)
             
         } elseif {[llength $depends] == 0} {
 
-            $self yes do action $name because it has no dependencies
+            $self yes $depth do action $name because it has no dependencies
 
 	} else {
 
-            $self no No need to update $name
+            $self no $depth No need to update $name
 
         }]} {
 
-            $self target do action $name ctx
+            $self target do action $name ctx $depth
         }
         if {$contextVar eq ""} {
             set ctx
         }
     }
 
-    method age {name contextVar} {
+    method mtime {name contextVar depth} {
         upvar 1 $contextVar ctx
-        if {[$self context fetch-state ctx $name age]} {
-            return $age
+        if {[$self context fetch-state ctx $name mtime]} {
+            return $mtime
         }
         if {[dict exists $myDeps $name check]} {
-            $self target do check $name ctx
-            if {[$self context fetch-state ctx $name age]} {
-                return $age
+            $self target do check $name ctx $depth
+            if {[$self context fetch-state ctx $name mtime]} {
+                return $mtime
             } else {
-                return Inf
+                return -Inf
             }
         } else {
             if {[$self file exists $name]} {
-                expr {1.0/[$self file mtime $name]}
+                $self file mtime $name
             } elseif {[dict exists $myDeps $name]} {
-                return Inf
+                return -Inf
             } else {
                 error "Unknown node or file: $name"
             }
@@ -170,11 +175,11 @@ snit::type TclTaskRunner {
 
     #========================================
 
-    method {target do action} {target contextVar} {
+    method {target do action} {target contextVar depth} {
         upvar 1 $contextVar ctx
         set script [$self target script-for action $target]
 	if {$options(-quiet)} {
-            $self dputs target $target script $script
+            $self dputs $depth target $target script $script
         } else {
             puts $options(-debug-fh) $script
 	}
@@ -182,10 +187,10 @@ snit::type TclTaskRunner {
             set res [$self worker apply-to $target $script]
             $self context set-state ctx $target action $res
 
-            $self dputs ==> $res
+            $self dputs $depth ==> $res
 
             # After action, do check should be called again.
-            $self target do check $target ctx
+            $self target do check $target ctx $depth
 	}
         dict lappend ctx updated $target
     }
@@ -203,7 +208,7 @@ snit::type TclTaskRunner {
         $self script subst $target $script
     }
 
-    method {target do check} {target contextVar} {
+    method {target do check} {target contextVar depth} {
         if {[set script [$self target script-for check $target]] eq ""} return
         upvar 1 $contextVar ctx
         
@@ -212,9 +217,9 @@ snit::type TclTaskRunner {
         if {$resList ne ""} {
             set rest [lassign $resList bool]
             if {$bool} {
-                $self context set-state ctx $target age \
-                    [set age [expr {1.0/([clock microseconds]/1000000.0)}]]
-                $self dputs target age is updated: $target age $age
+                $self context set-state ctx $target mtime \
+                    [set mtime [expr {[clock microseconds]/1000000.0}]]
+                $self dputs $depth target mtime is updated: $target mtime $mtime
             }
         }
     }
