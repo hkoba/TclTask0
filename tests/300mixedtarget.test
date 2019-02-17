@@ -37,7 +37,6 @@ test $THEME-create "create TclTaskRunner instance" {
 
 } ::dep
 
-array set MTIME []
 set FOO_VAL 100
 set BAR_VAL 200
 makeFile $FOO_VAL foo.src
@@ -46,13 +45,9 @@ makeFile $BAR_VAL bar.src
 test $THEME-target-add "target add" {
 
     # file -> memory
-    dep target add ::FOO check {
-        expr {[info exists $@] && [info exists ::MTIME($<)]
-              && [file mtime $<] < $::MTIME($<)}
-    } depends {
+    dep target add ::FOO depends {
         foo.src
     } action {
-        set ::MTIME($<) [file mtime $<]
         set ::FOO [read_file $<]
     }
 
@@ -76,13 +71,11 @@ test $THEME-target-update-[incr C] "update" {
 
 #========================================
 after [expr {1000 - [clock milliseconds] % 1000}]
-array unset MTIME
-array set MTIME []
+
 #========================================
 
 set FOO_VAL 150
 makeFile $FOO_VAL foo.src
-unset ::FOO
 
 test $THEME-target-update-[incr C] "update file target" {
     

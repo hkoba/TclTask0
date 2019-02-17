@@ -98,6 +98,9 @@ snit::type TclTaskRunner {
 	    if {[set thisMtime [$self mtime $name ctx $depth]]
                 < [set predMtime [$self mtime $pred ctx $depth]]} {
 		lappend changed $pred
+            } elseif {$predMtime == -Inf && $thisMtime != -Inf} {
+                $self dputs $depth Not changed but infinitely old: $pred
+                lappend changed $pred
 	    } else {
                 $self dputs $depth Not changed $pred mtime $predMtime $name $thisMtime
             }
@@ -111,6 +114,10 @@ snit::type TclTaskRunner {
         } elseif {[llength $depends] == 0} {
 
             $self yes $depth do action $name because it has no dependencies
+
+	} elseif {[$self mtime $name ctx $depth] == -Inf} {
+
+            $self yes $depth do action $name because it is infinitely old
 
 	} else {
 
