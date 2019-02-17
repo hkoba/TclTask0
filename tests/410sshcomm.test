@@ -28,7 +28,7 @@ testConstraint has_sshcomm \
 testConstraint has_docker \
     [expr {[auto_execok docker] ne ""
            &&
-           ![catch {exec docker run hello-world}]}]
+           ![catch {exec docker run --rm hello-world}]}]
 
 testConstraint has_sshtest \
     [expr {[file exists [set fn $sshTestDir/authorized_keys]]
