@@ -338,6 +338,14 @@ snit::type TclTaskRunner {
 	    set default
 	}
     }
+    proc default {varName default} {
+        upvar 1 $varName var
+        if {[info exists var]} {
+            set var
+        } else {
+            set default
+        }
+    }
     proc parsePosixOpts {varName {dict {}}} {
         upvar 1 $varName opts
 
