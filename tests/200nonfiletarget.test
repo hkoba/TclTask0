@@ -17,7 +17,8 @@ set C 0
 
 test $THEME-basic-[incr C] "target add -> target list" {
 
-    TclTaskRunner dep -quiet yes;# -debug 1
+    set debug [TclTaskRunner::default ::env(DEBUG) 0]
+    TclTaskRunner dep -debug $debug -quiet [expr {! $debug}]
 
     dep target add varX depends {} check {
         info exists ::varX

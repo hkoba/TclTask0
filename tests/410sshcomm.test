@@ -103,7 +103,8 @@ set THEME taskrunner-sshcomm
 
 test $THEME-create "create" -body {
 
-    TclTaskRunner dep -quiet yes \
+    set debug [TclTaskRunner::default ::env(DEBUG) 0]
+    TclTaskRunner dep -debug $debug -quiet [expr {! $debug}] \
         -worker [list comm::comm send $cid];# -debug 1
 
 } -result ::dep

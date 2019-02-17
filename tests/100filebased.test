@@ -34,7 +34,8 @@ test $pfx-prepare "" {
 
 test $pfx-create "create TclTaskRunner instance" {
 
-    TclTaskRunner dep
+    set debug [TclTaskRunner::default ::env(DEBUG) 0]
+    TclTaskRunner dep -debug $debug
 
 } ::dep
 

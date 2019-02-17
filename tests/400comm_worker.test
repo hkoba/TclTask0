@@ -40,8 +40,9 @@ set C 0
 
 test $THEME-comm-[incr C] "construct with -worker" -body {
     
-    TclTaskRunner dep -quiet yes \
-        -worker [list comm::comm send $kidID];# -debug 1
+    set debug [TclTaskRunner::default ::env(DEBUG) 0]
+    TclTaskRunner dep -debug $debug -quiet [expr {! $debug}] \
+        -worker [list comm::comm send $kidID];
 
 } -result ::dep
     

@@ -32,7 +32,8 @@ set C 0
 
 test $THEME-create "create TclTaskRunner instance" {
 
-    TclTaskRunner dep -debug yes; # -quiet yes 
+    set debug [TclTaskRunner::default ::env(DEBUG) 0]
+    TclTaskRunner dep -debug $debug -quiet [expr {! $debug}]
 
 } ::dep
 
