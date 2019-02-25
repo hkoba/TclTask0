@@ -372,8 +372,17 @@ snit::type TclTaskRunner {
 
 if {![info level] && [info script] eq $::argv0} {
     apply {{} {
-        
-        source [file dirname [info script]]/helper/extras.tcl
+
+        set scriptFn [file normalize [info script]]
+        if {[file type $scriptFn] eq "link"} {
+            set scriptFn [if {[file pathtype [set linkFn [file readlink $scriptFn]]] eq "relative"} {
+                file normalize [file join [file dirname $scriptFn] $linkFn]
+            } else {
+                set linkFn
+            }]
+        }
+
+        source [file dirname $scriptFn]/helper/extras.tcl
 
         TclTaskRunner dep {*}[TclTaskRunner::parsePosixOpts ::argv]
         if {[llength $::argv]} {
