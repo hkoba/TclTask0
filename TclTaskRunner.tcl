@@ -126,8 +126,8 @@ snit::macro TclTaskRunner::Macro {} {
 
             # If predecessor is younger than the target,
             # target should be refreshed.
-            if {[set thisMtime [$self mtime $name ctx $depth]]
-                < [set predMtime [$self mtime $pred ctx $depth]]} {
+            if {[set thisMtime [$self mtime ctx $name $depth]]
+                < [set predMtime [$self mtime ctx $pred $depth]]} {
                 lappend changed $pred
             } elseif {$predMtime == -Inf && $thisMtime != -Inf} {
                 $self dputs $depth Not changed but infinitely old: $pred
@@ -146,7 +146,7 @@ snit::macro TclTaskRunner::Macro {} {
 
             $self yes $depth do action $name because it has no dependencies
 
-        } elseif {[$self mtime $name ctx $depth] == -Inf} {
+        } elseif {[$self mtime ctx $name $depth] == -Inf} {
 
             $self yes $depth do action $name because it is infinitely old
 
@@ -156,20 +156,20 @@ snit::macro TclTaskRunner::Macro {} {
 
         }]} {
 
-            $self target do action $name ctx $depth
+            $self target do action ctx $name $depth
         }
         if {$contextVar eq ""} {
             set ctx
         }
     }
 
-    method mtime {name contextVar depth} {
+    method mtime {contextVar name depth} {
         upvar 1 $contextVar ctx
         if {[$self context fetch-state ctx $name mtime]} {
             return $mtime
         }
         if {[dict exists $myDeps $name check]} {
-            $self target do check $name ctx $depth
+            $self target do check ctx $name $depth
             if {[$self context fetch-state ctx $name mtime]} {
                 return $mtime
             } else {
@@ -213,7 +213,7 @@ snit::macro TclTaskRunner::Macro {} {
 
     #========================================
 
-    method {target do action} {target contextVar depth} {
+    method {target do action} {contextVar target depth} {
         upvar 1 $contextVar ctx
         set script [$self target script-for action $target]
         if {$options(-quiet)} {
@@ -228,7 +228,7 @@ snit::macro TclTaskRunner::Macro {} {
             $self dputs $depth ==> $res
 
             # After action, do check should be called again.
-            $self target do check $target ctx $depth
+            $self target do check ctx $target $depth
 	}
         dict lappend ctx updated $target
     }
@@ -246,7 +246,7 @@ snit::macro TclTaskRunner::Macro {} {
         $self script subst $target $script
     }
 
-    method {target do check} {target contextVar depth} {
+    method {target do check} {contextVar target depth} {
         if {[set script [$self target script-for check $target]] eq ""} return
         upvar 1 $contextVar ctx
 
