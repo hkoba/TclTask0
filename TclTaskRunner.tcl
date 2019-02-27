@@ -372,7 +372,7 @@ snit::macro TclTaskRunner::Macro {} {
     }
 
     typemethod apply-in-ns {ns varList command args} {
-        namespace eval $ns [list apply [list $varList $command] {*}$args]
+        apply [list $varList $command $ns] {*}$args
     }
 
     typemethod {helper enable} file {
