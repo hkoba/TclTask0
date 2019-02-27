@@ -1,6 +1,6 @@
 # -*- mode: tcl; coding: utf-8 -*-
 
-snit::method TclTaskRunner dispatch {argList defaultCommand args} {
+snit::method $type dispatch {argList defaultCommand args} {
     if {[llength $args] % 2 != 0} {
         error "Odd number of dispatch extension list!"
     }
@@ -13,7 +13,7 @@ snit::method TclTaskRunner dispatch {argList defaultCommand args} {
     }
 }
 
-snit::method TclTaskRunner {method} {name argList body} {
+snit::method $type {method} {name argList body} {
     set map [namespace ensemble configure $self -map]
     set baseArgs [lrange [dict get $map configurelist] 1 end]
     set proc [list ::apply [list [list type selfns win self {*}$argList] \
@@ -23,7 +23,7 @@ snit::method TclTaskRunner {method} {name argList body} {
         -map [list {*}$map $name $proc]
 }
 
-snit::method TclTaskRunner run {cmd args} {
+snit::method $type run {cmd args} {
     if {!$options(-quiet)} {
         puts $options(-debug-fh) "$cmd $args"
     }
