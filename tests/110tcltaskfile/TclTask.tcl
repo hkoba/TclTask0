@@ -20,6 +20,8 @@ dep add a.o {a.c a.h} {cc -c $< -o $@}
 # $^  dependency list
 
 # You can define and use any procedure in tcl.
+# Actually, this procedure is defined in $selfns.
+# XXX: Currently, proc is not propagated to remote worker.
 proc cc args {exec gcc {*}$args}
 
 #
