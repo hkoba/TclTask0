@@ -376,28 +376,29 @@ snit::macro TclTaskRunner::Macro {} {
     }
 
     typemethod {helper enable} file {
-        set fn [set [set type]::libDir]/helper/$file
+        set fn $TclTaskRunner::libDir/helper/$file
 
         $type apply-in-ns :: type [list source $fn] $type
     }
 
-    typemethod toplevel {argListVar} {
-        upvar 1 $argListVar argList
-
+    typemethod toplevel args {
         $type helper enable config.tcl
         $type helper enable extras.tcl
 
         set self ::dep
-        $type $self {*}[$type parsePosixOpts argList]\
+        $type $self {*}[$type parsePosixOpts args]\
             -debug [default ::env(DEBUG) 0]
 
-        if {[llength $argList]} {
-            set argList [lassign $argList taskFile]
+        if {[llength $args]} {
+            set args [lassign $args taskFile]
         } else {
             set taskFile TclTask.tcl
         }
 
-        $self configurelist [$type parsePosixOpts argList]
+        $self configurelist [$type parsePosixOpts args]
+
+        scope_guard args [list set ::argv $::argv]
+        set ::argv $args
 
         $self source $taskFile
     }
@@ -409,6 +410,6 @@ snit::type TclTaskRunner {
 
 if {![info level] && [info script] eq $::argv0} {
 
-    TclTaskRunner toplevel ::argv
+    TclTaskRunner toplevel {*}$::argv
 
 }
