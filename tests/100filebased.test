@@ -110,11 +110,15 @@ test $THEME-make "real make: prog" -body {
 
     makeFile "/**/" b.c
 
-    dict get [dep update prog] updated
+    dict get [set result [dep update prog]] updated
 
 } -result [list b.o prog] -output "cc -c b.c -o b.o
 cc main.o a.o b.o c.o -o prog
 "
+
+test $THEME-examined-targets "reverse list of examined target" -body {
+    dict get $result examined
+} -result {prog main.o a.o b.o c.o}
 
 test $THEME-cleanup "remove objs" -body {
     foreach fn {main.o a.o b.o c.o prog} {

@@ -111,6 +111,8 @@ snit::macro TclTaskRunner::Macro {} {
             return 0
         }
 
+        dict lappend ctx examined $name
+
         set changed []
         dict set ctx visited $name 1
         set depends [dict get $myDeps $name depends]
