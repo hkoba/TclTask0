@@ -42,6 +42,22 @@ snit::type TclTaskRunner {
         $self configurelist $args
     }
 
+    method source taskFile {
+        if {![file exists $taskFile]} {
+            error "Can't find $taskFile"
+        }
+        set taskFile [file normalize $taskFile]
+        set cwd [pwd]
+        scope_guard cwd [list cd $cwd]
+        cd [file dirname $taskFile]
+        if {$options(-debug)} {
+            puts "sourcing $taskFile"
+        }
+
+        $type apply-in-ns :: {self type selfns} [list source $taskFile]\
+            $self $type $selfns
+    }
+
     #========================================
 
     method yes {depth args} {$self dputs $depth {*}$args; expr {"yes"}}
@@ -336,7 +352,7 @@ snit::type TclTaskRunner {
     }
 
     #========================================
-    proc parsePosixOpts {varName {dict {}}} {
+    typemethod parsePosixOpts {varName {dict {}}} {
         upvar 1 $varName opts
 
         for {} {[llength $opts]
@@ -350,39 +366,40 @@ snit::type TclTaskRunner {
         set dict
     }
 
+    typemethod apply-in-ns {ns varList command args} {
+        namespace eval $ns [list apply [list $varList $command] {*}$args]
+    }
+
+    typemethod {helper enable} file {
+        set fn [set [set type]::libDir]/helper/$file
+
+        $type apply-in-ns :: type [list source $fn] $type
+    }
+
+    typemethod toplevel {argListVar} {
+        upvar 1 $argListVar argList
+
+        $type helper enable extras.tcl
+
+        set self ::dep
+        $type $self {*}[$type parsePosixOpts argList]\
+            -debug [default ::env(DEBUG) 0]
+
+        if {[llength $argList]} {
+            set argList [lassign $argList taskFile]
+        } else {
+            set taskFile TclTask.tcl
+        }
+
+        $self configurelist [$type parsePosixOpts argList]
+
+        $self source $taskFile
+    }
 }
 
 
 if {![info level] && [info script] eq $::argv0} {
-    apply {{} {
 
-        set scriptFn [file normalize [info script]]
-        if {[file type $scriptFn] eq "link"} {
-            set scriptFn [if {[file pathtype [set linkFn [file readlink $scriptFn]]] eq "relative"} {
-                file normalize [file join [file dirname $scriptFn] $linkFn]
-            } else {
-                set linkFn
-            }]
-        }
+    TclTaskRunner toplevel ::argv
 
-        source [file dirname $scriptFn]/helper/extras.tcl
-
-        TclTaskRunner dep {*}[TclTaskRunner::parsePosixOpts ::argv]
-        if {[llength $::argv]} {
-            set ::argv [lassign $::argv fileName]
-        } else {
-            set fileName TclTask.tcl
-        }
-        if {![file exists $fileName]} {
-            error "Can't find $fileName"
-        }
-        set realFile [file normalize $fileName]
-        cd [file dirname $realFile]
-        dep configure -debug [TclTaskRunner::default ::env(DEBUG) 0]
-        dep configurelist [TclTaskRunner::parsePosixOpts ::argv]
-        if {[dep cget -debug]} {
-            puts "sourcing $realFile"
-        }
-        source $realFile
-    }}
 }
