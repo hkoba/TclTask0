@@ -1,0 +1,35 @@
+#!/usr/bin/env tclsh
+
+package require fileutil
+
+package require tcltest
+namespace import tcltest::*
+
+set testScript [file normalize [info script]]
+set testDir [file dirname $testScript]
+
+test load "Make sure it is loadable." {
+    source [file dirname [file dirname $testScript]]/TclTaskRunner.tcl
+} ""
+
+namespace eval ::CustomRunner {
+    namespace import ::TclTaskRunner::*
+}
+snit::type CustomRunner {
+    TclTaskRunner::Macro
+
+    method foo {} {return BAR}
+}
+
+set ::env(TTR_TEST_SPEC) [list TYPE CustomRunner THEME customtype-]
+
+foreach fn {
+    100filebased.test
+    200nonfiletarget.test
+} {
+    source $testDir/$fn
+    catch {rename dep ""}
+}
+
+cleanupTests
+
