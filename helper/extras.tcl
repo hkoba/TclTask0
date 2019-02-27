@@ -25,7 +25,7 @@ snit::method $type {method} {name argList body} {
 
 snit::method $type run {cmd args} {
     if {!$options(-quiet)} {
-        puts $options(-debug-fh) "$cmd $args"
+        puts $options(-log-fh) "$cmd $args"
     }
     if {$options(-dryrun)} {
         return
