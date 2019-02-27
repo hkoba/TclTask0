@@ -33,6 +33,10 @@ snit::type TclTaskRunner {
 
     variable myDeps [dict create]
 
+    variable myActualConfig [dict create]
+    variable myKnownConfig [dict create]
+    variable myConfigReader ""
+
     variable myWorker ""
 
     #========================================
@@ -379,6 +383,7 @@ snit::type TclTaskRunner {
     typemethod toplevel {argListVar} {
         upvar 1 $argListVar argList
 
+        $type helper enable config.tcl
         $type helper enable extras.tcl
 
         set self ::dep
