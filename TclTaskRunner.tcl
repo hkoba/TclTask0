@@ -7,6 +7,16 @@
 
 package require snit
 package require struct::list
+package require fileutil
+
+namespace eval TclTaskRunner {
+    ::variable scriptFn [::fileutil::fullnormalize [info script]]
+    ::variable libDir [file dirname $scriptFn]
+
+    source $libDir/helper/util.tcl
+
+    namespace export *
+}
 
 snit::type TclTaskRunner {
     option -quiet no
@@ -326,33 +336,6 @@ snit::type TclTaskRunner {
     }
 
     #========================================
-
-    proc DO {self ck check do action} {
-        set rc [catch $check __RESULT__]
-        if {$rc ni [list 0 2]} {
-            return [list no rc $rc error $__RESULT__]
-        } elseif {[lindex $__RESULT__ 0]} {
-            return yes
-        } else {
-            eval $action
-        }
-    }
-
-    proc dict-default {dict key default} {
-	if {[dict exists $dict $key]} {
-	    dict get $dict $key
-	} else {
-	    set default
-	}
-    }
-    proc default {varName default} {
-        upvar 1 $varName var
-        if {[info exists var]} {
-            set var
-        } else {
-            set default
-        }
-    }
     proc parsePosixOpts {varName {dict {}}} {
         upvar 1 $varName opts
 
