@@ -27,3 +27,4 @@ test tcltask-clean "run with clean" {
     file exists $testDir/prog
 } 0
 
+if {![info exists ::env(TTR_TEST_SPEC)]} cleanupTests

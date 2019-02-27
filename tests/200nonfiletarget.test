@@ -73,4 +73,4 @@ test $THEME-basic-[incr C] "target update on dependency" {
 
 } {12 {varX 2 varY 1 varZ 2}}
 
-cleanupTests
+if {![info exists ::env(TTR_TEST_SPEC)]} cleanupTests

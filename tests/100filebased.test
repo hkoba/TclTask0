@@ -122,4 +122,4 @@ test $THEME-cleanup "remove objs" -body {
     }
 }
 
-cleanupTests
+if {![info exists ::env(TTR_TEST_SPEC)]} cleanupTests

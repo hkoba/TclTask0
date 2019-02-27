@@ -12,6 +12,9 @@ test load "Make sure it is loadable." {
     source [file dirname [file dirname $testScript]]/TclTaskRunner.tcl
 } ""
 
+#----------------------------------------
+# Define custom runner type
+
 namespace eval ::CustomRunner {
     namespace import ::TclTaskRunner::*
 }
@@ -21,15 +24,45 @@ snit::type CustomRunner {
     method foo {} {return BAR}
 }
 
+test customtype-create "custom runner is creatable" {
+    CustomRunner dep
+} ::dep
+
+test customtype-is-extended "custom runner has method foo" {
+    dep foo
+} BAR
+
+#----------------------------------------
+
 set ::env(TTR_TEST_SPEC) [list TYPE CustomRunner THEME customtype-]
 
 foreach fn {
     100filebased.test
     200nonfiletarget.test
 } {
+    rename dep ""
     source $testDir/$fn
-    catch {rename dep ""}
 }
 
-cleanupTests
+#----------------------------------------
 
+set testItemDir $testDir/110tcltaskfile
+set fn $testItemDir/TclTask.tcl
+
+test customtype-tcltaskfile-run "run without arguments" {
+    rename dep ""
+
+    CustomRunner toplevel $fn
+
+    file exists $testItemDir/prog
+} 1
+
+test customtype-tcltaskfile-clean "run with clean" {
+    rename ::dep ""
+
+    CustomRunner toplevel $fn clean
+
+    file exists $testItemDir/prog
+} 0
+
+cleanupTests
