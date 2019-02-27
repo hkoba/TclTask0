@@ -38,7 +38,7 @@ snit::type TclTaskRunner {
     #========================================
     constructor args {
         $self worker install [from args -worker ""]
-        
+
         $self configurelist $args
     }
 
@@ -75,15 +75,15 @@ snit::type TclTaskRunner {
     #========================================
 
     method {target add} {name args} {
-	if {[dict exists $myDeps $name]} {
-	    error "Task $name is multiply defined!"
-	}
+        if {[dict exists $myDeps $name]} {
+            error "Task $name is multiply defined!"
+        }
         # XXX: [llength $args] == 1 form.
         set dict [dict create {*}$args]
         if {[set errors [$self task verify $dict]] ne ""} {
             error "Task $name has error: $errors"
         }
-	dict set myDeps $name $dict
+        dict set myDeps $name $dict
     }
 
     # Shorthand form of target add.
@@ -101,51 +101,51 @@ snit::type TclTaskRunner {
             # Root of this update.
             set ctx [$self context new {*}$args]
         }
-	if {![dict exists $myDeps $name]} {
+        if {![dict exists $myDeps $name]} {
             if {$contextVar eq ""} {
                 error "Unknown file or target: $name"
             }
-	    return 0
-	}
+            return 0
+        }
 
-	set changed []
-	dict set ctx visited $name 1
-	set depends [dict get $myDeps $name depends]
-	foreach pred $depends {
+        set changed []
+        dict set ctx visited $name 1
+        set depends [dict get $myDeps $name depends]
+        foreach pred $depends {
             $self dputs $depth $name depends on $pred
-	    if {[set v [dict-default [dict get $ctx visited] $pred 0]] == 0} {
-		$self update $pred ctx [expr {$depth+1}]
-	    } elseif {$v == 1} {
-		error "Task $pred and $name are circularly defined!"
-	    }
+            if {[set v [dict-default [dict get $ctx visited] $pred 0]] == 0} {
+                $self update $pred ctx [expr {$depth+1}]
+            } elseif {$v == 1} {
+                error "Task $pred and $name are circularly defined!"
+            }
 
-	    # If predecessor is younger than the target,
-	    # target should be refreshed.
-	    if {[set thisMtime [$self mtime $name ctx $depth]]
+            # If predecessor is younger than the target,
+            # target should be refreshed.
+            if {[set thisMtime [$self mtime $name ctx $depth]]
                 < [set predMtime [$self mtime $pred ctx $depth]]} {
-		lappend changed $pred
+                lappend changed $pred
             } elseif {$predMtime == -Inf && $thisMtime != -Inf} {
                 $self dputs $depth Not changed but infinitely old: $pred
                 lappend changed $pred
-	    } else {
+            } else {
                 $self dputs $depth Not changed $pred mtime $predMtime $name $thisMtime
             }
-	}
-	dict set ctx visited $name 2
+        }
+        dict set ctx visited $name 2
 
-	if {[if {[llength $changed]} {
+        if {[if {[llength $changed]} {
 
             $self yes $depth do action $name because changed=($changed)
-            
+
         } elseif {[llength $depends] == 0} {
 
             $self yes $depth do action $name because it has no dependencies
 
-	} elseif {[$self mtime $name ctx $depth] == -Inf} {
+        } elseif {[$self mtime $name ctx $depth] == -Inf} {
 
             $self yes $depth do action $name because it is infinitely old
 
-	} else {
+        } else {
 
             $self no $depth No need to update $name
 
@@ -186,7 +186,7 @@ snit::type TclTaskRunner {
     }
 
     #========================================
-   
+
     method {target list} {} {dict keys $myDeps }
     method names {} { dict keys $myDeps }
 
@@ -199,11 +199,11 @@ snit::type TclTaskRunner {
     }
 
     method forget name {
-	if {![dict exists $myDeps $name]} {
-	    return 0
-	}
-	dict unset myDeps $name
-	return 1
+        if {![dict exists $myDeps $name]} {
+            return 0
+        }
+        dict unset myDeps $name
+        return 1
     }
 
     #========================================
@@ -211,12 +211,12 @@ snit::type TclTaskRunner {
     method {target do action} {target contextVar depth} {
         upvar 1 $contextVar ctx
         set script [$self target script-for action $target]
-	if {$options(-quiet)} {
+        if {$options(-quiet)} {
             $self dputs $depth target $target script $script
         } else {
             puts $options(-debug-fh) $script
-	}
-	if {!$options(-dryrun)} {
+        }
+        if {!$options(-dryrun)} {
             set res [$self worker apply-to $target $script]
             $self context set-state ctx $target action $res
 
@@ -237,14 +237,14 @@ snit::type TclTaskRunner {
         } else {
             set action
         }]
-        
+
         $self script subst $target $script
     }
 
     method {target do check} {target contextVar depth} {
         if {[set script [$self target script-for check $target]] eq ""} return
         upvar 1 $contextVar ctx
-        
+
         set resList [$self worker apply-to $target $script]
         $self context set-state ctx $target check $resList
         if {$resList ne ""} {
@@ -305,7 +305,7 @@ snit::type TclTaskRunner {
         upvar 1 $contextVar ctx
         dict set ctx state $target $key $value
     }
-    
+
     method {context fetch-state} {contextVar target key} {
         upvar 1 $contextVar ctx
         upvar 1 $key result
@@ -342,7 +342,7 @@ snit::type TclTaskRunner {
     }
 
     method {script subst} {target script args} {
-	set deps [dict get $myDeps $target depends]
+        set deps [dict get $myDeps $target depends]
         string map [list \
                         \$@ $target \
                         \$< [string trim [lindex $deps 0]] \
