@@ -15,14 +15,14 @@ set ::env(PATH) $libDir:$::env(PATH)
 
 test tcltask-run "run without arguments" {
 
-    exec $testDir/TclTask.tcl
+    exec $testDir/TclTask.tcl 2>@ stdout
     
     file exists $testDir/prog
 } 1
 
 test tcltask-clean "run with clean" {
 
-    exec $testDir/TclTask.tcl clean
+    exec $testDir/TclTask.tcl clean 2>@ stdout
     
     file exists $testDir/prog
 } 0
