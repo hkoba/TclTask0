@@ -52,9 +52,7 @@ snit::macro TclTaskRunner::Macro {} {
             error "Can't find $taskFile"
         }
         set taskFile [file normalize $taskFile]
-        set cwd [pwd]
-        scope_guard cwd [list cd $cwd]
-        cd [file dirname $taskFile]
+        pushd_scope prevDir [file dirname $taskFile]
         if {$options(-debug)} {
             puts "sourcing $taskFile"
         }

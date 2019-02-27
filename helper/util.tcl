@@ -29,6 +29,11 @@ proc default {varName default} {
     }
 }
 
+proc pushd_scope {varName newDir} {
+    uplevel 1 [list scope_guard $varName [list cd [pwd]]]
+    cd $newDir
+}
+
 proc scope_guard {varName command} {
     upvar 1 $varName var
     uplevel 1 [list trace add variable $varName unset \
