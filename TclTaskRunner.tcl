@@ -59,7 +59,7 @@ snit::macro TclTaskRunner::Macro {} {
             puts "sourcing $taskFile"
         }
 
-        $type apply-in-ns :: {self type selfns} [list source $taskFile]\
+        $type apply-in-ns $selfns {self type selfns} [list source $taskFile]\
             $self $type $selfns
     }
 
@@ -325,7 +325,7 @@ snit::macro TclTaskRunner::Macro {} {
     #========================================
 
     method {worker apply-to} {target script} {
-        {*}$myWorker [list apply [list {self target} $script] \
+        {*}$myWorker [list apply [list {self target} $script $selfns] \
                           $self $target]
     }
 
@@ -337,6 +337,7 @@ snit::macro TclTaskRunner::Macro {} {
         install myWorker using set worker
 
         {*}$myWorker [list namespace eval $type {}]
+        {*}$myWorker [list namespace eval $selfns {}]
 
         # Send the definition of TclTaskRunner::DO to myWorker.
         foreach cmd {DO} {
