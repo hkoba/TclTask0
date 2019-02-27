@@ -18,7 +18,7 @@ namespace eval TclTaskRunner {
     namespace export *
 }
 
-snit::type TclTaskRunner {
+snit::macro TclTaskRunner::Macro {} {
     option -quiet no
     option -dryrun no
     option -log-fh stdout
@@ -403,6 +403,9 @@ snit::type TclTaskRunner {
     }
 }
 
+snit::type TclTaskRunner {
+    TclTaskRunner::Macro
+}
 
 if {![info level] && [info script] eq $::argv0} {
 
