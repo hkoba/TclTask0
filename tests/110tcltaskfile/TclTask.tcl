@@ -16,8 +16,8 @@ dep add a.o {a.c a.h} {cc -c $< -o $@}
 # It also supports following Makefile equivalent of shorthand variables:
 #
 # $@  target
-# $<  dependency list
-# $^  first element of dependency list
+# $<  first element of dependency list
+# $^  dependency list
 
 # You can define and use any procedure in tcl.
 proc cc args {exec gcc {*}$args}
