@@ -26,9 +26,8 @@ testConstraint has_ssh_keygen \
     [expr {[auto_execok ssh-keygen] ne ""}]
 
 if {[testConstraint has_ssh_keygen]} {
-    if {[auto_execok selinuxenabled] ne ""
-        && [exec selinuxenabled] eq ""} {
-        exec chcon -R -t ssh_home_t $sshTestDir
+    if {![file exists $sshTestDir]} {
+        file mkdir $sshTestDir
     }
     if {![file exists [set fn $sshTestDir/id_rsa]]} {
         exec ssh-keygen -t rsa -f $fn -N ""
@@ -40,7 +39,8 @@ if {[testConstraint has_ssh_keygen]} {
         file attributes $fn -permissions 0644
     }
     if {[dict get [file attributes $fn] -owner] ne "root"} {
-        exec sudo chown root $fn
+        puts "Changing owner for $sshTestDir"
+        exec sudo chown root $sshTestDir $fn
     }
 }
 
