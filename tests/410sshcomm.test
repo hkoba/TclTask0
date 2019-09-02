@@ -15,20 +15,34 @@ proc default {varName default} {
 }
 
 set testScript [file normalize [info script]]
+set testDir [file dirname $testScript]
+set sshTestDir $testDir/docker_home_ssh
 
-set outerDir [file dirname [file dirname [file dirname $testScript]]]
-
-set sshTestDir [default ::env(TCLTASK_SSHTEST_DIR) $outerDir/sshtest]
+set outerDir [file dirname [file dirname $testDir]]
 
 set dockerImage [default ::env(TCLTASK_SSHTEST_DOCKER_IMG) hkoba501/ubuntu-sshd-tcl]
 
-testConstraint has_sshcomm \
-    [file exists $outerDir/sshcomm/sshcomm.tcl]
+testConstraint has_ssh_keygen \
+    [expr {[auto_execok ssh-keygen] ne ""}]
 
-testConstraint has_docker \
-    [expr {[auto_execok docker] ne ""
-           &&
-           ![catch {exec docker run --rm hello-world}]}]
+if {[testConstraint has_ssh_keygen]} {
+    if {[auto_execok selinuxenabled] ne ""
+        && [exec selinuxenabled] eq ""} {
+        exec chcon -R -t ssh_home_t $sshTestDir
+    }
+    if {![file exists [set fn $sshTestDir/id_rsa]]} {
+        exec ssh-keygen -t rsa -f $fn -N ""
+    }
+    if {![file exists [set fn $sshTestDir/authorized_keys]]} {
+        file copy $sshTestDir/id_rsa.pub $fn
+    }
+    if {[dict get [file attributes $fn] -permissions] & 022} {
+        file attributes $fn -permissions 0644
+    }
+    if {[dict get [file attributes $fn] -owner] ne "root"} {
+        exec sudo chown root $fn
+    }
+}
 
 testConstraint has_sshtest \
     [expr {[file exists [set fn $sshTestDir/authorized_keys]]
@@ -37,7 +51,15 @@ testConstraint has_sshtest \
            && [file readable $fn]
        }]
                                      
-set CONSTRAINTS {unix has_sshcomm has_docker has_sshtest}
+testConstraint has_sshcomm \
+    [file exists $outerDir/sshcomm/sshcomm.tcl]
+
+testConstraint has_docker \
+    [expr {[auto_execok docker] ne ""
+           &&
+           ![catch {exec docker run --rm hello-world}]}]
+
+set CONSTRAINTS {unix has_ssh_keygen has_sshcomm has_docker has_sshtest}
 # foreach c $CONSTRAINTS {
 #     puts [list $c [testConstraint $c]]
 # }
