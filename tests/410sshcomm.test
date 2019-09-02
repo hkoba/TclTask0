@@ -61,28 +61,21 @@ test docker-start "Start docker sshd" -constraints $CONSTRAINTS -body {
                                $dockerImage \
                                2>@1 ]]
 
-    while {![fblocked $dockerChan]} {
-        if {[gets $dockerChan line] >= 0} {
+    fconfigure $dockerChan -blocking 0 -buffering line
+    fileevent $dockerChan readable [list apply {{waitVar chan} {
+        upvar 1 $waitVar wait 
+        if {[gets $chan line] >= 0} {
             puts "DOCKER: $line"
             if {[regexp {^Server listening on \S+ port \d+\.} $line]} {
-                break;
+                set wait DONE
             }
-        }
-        if {[eof $dockerChan]} {
-            puts "DOCKER-STOPPED"
-            close $dockerChan
-        }
-    }
-
-    fconfigure $dockerChan -blocking 0 -buffering line
-    fileevent $dockerChan readable [list apply {chan {
-        if {[gets $chan line] >= 0} {
-            puts $line
         }
         if {[eof $chan]} {
             close $chan
         }
-    }} $dockerChan]
+    }} wait $dockerChan]
+
+    vwait wait
 
     pid $dockerChan
 
