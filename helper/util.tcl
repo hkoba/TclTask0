@@ -39,3 +39,11 @@ proc scope_guard {varName command} {
     uplevel 1 [list trace add variable $varName unset \
                    [list apply [list args $command]]]
 }
+
+proc configlist obj {
+    set configList []
+    foreach item [$obj configure] {
+        lappend configList [lindex $item 0] [lindex $item end]
+    }
+    set configList
+}

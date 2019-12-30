@@ -18,6 +18,8 @@ namespace eval TclTaskRunner {
     namespace export *
 }
 
+source $TclTaskRunner::libDir/helper/namespace-util.tcl
+
 snit::macro TclTaskRunner::Macro {} {
     option -quiet no
     option -dryrun no
@@ -112,6 +114,9 @@ snit::macro TclTaskRunner::Macro {} {
             return 0
         }
 
+        if {! $depth} {
+            $self worker sync
+        }
         dict lappend ctx examined $name
 
         set changed []
@@ -337,17 +342,31 @@ snit::macro TclTaskRunner::Macro {} {
 
         install myWorker using set worker
 
-        {*}$myWorker [list namespace eval $type {}]
-        {*}$myWorker [list namespace eval $selfns {}]
-
-        # Send the definition of TclTaskRunner::DO to myWorker.
-        foreach cmd {DO} {
-            set nsCmd ${type}::$cmd
-            {*}$myWorker [list proc $nsCmd \
-                              [info args $nsCmd] [info body $nsCmd]]
-        }
+        $self worker sync -init
     }
 
+    method {worker is-self} {} {
+        string equal $myWorker [list interp eval {}]
+    }
+
+    method {worker sync} {{mode ""}} {
+        if {[$self worker is-self]} return
+        if {$mode eq "-init"} {
+            {*}$myWorker [list namespace eval :: [list package require snit]]
+
+            {*}$myWorker [list namespace eval $type {}]
+            {*}$myWorker [list namespace eval $selfns {}]
+
+            {*}$myWorker [::namespace-util::definition-of-snit-macro ::TclTaskRunner::Macro]
+
+            {*}$myWorker [${type}::definition]
+            
+            {*}$myWorker [list $type $self {*}[configlist $self]]
+        } else {
+            {*}$myWorker [list $self configurelist [configlist $self]]
+        }
+    }
+    
     method {script subst} {target script args} {
         set deps [dict get $myDeps $target depends]
         string map [list \
@@ -406,9 +425,15 @@ snit::macro TclTaskRunner::Macro {} {
     }
 }
 
-snit::type TclTaskRunner {
-    TclTaskRunner::Macro
+proc ::TclTaskRunner::definition {} {
+    return {
+        snit::type TclTaskRunner {
+            TclTaskRunner::Macro
+        }
+    }
 }
+
+eval [::TclTaskRunner::definition]
 
 if {![info level] && [info script] eq $::argv0} {
 
