@@ -99,7 +99,7 @@ snit::macro TclTaskRunner::Macro {} {
 
     #========================================
 
-    method update {target {contextVar ""} {depth 0} args} {
+    method update {{target ""} {contextVar ""} {depth 0} args} {
         if {$contextVar ne ""} {
             # Called from dependency.
             upvar 1 $contextVar ctx
@@ -107,6 +107,11 @@ snit::macro TclTaskRunner::Macro {} {
             # Root of this update.
             set ctx [$self context new {*}$args]
         }
+        
+        if {$depth == 0 && $target eq ""} {
+            set target [lindex [$self target list] end]
+        }
+
         if {![dict exists $myDeps $target]} {
             if {$contextVar eq ""} {
                 error "Unknown file or target: $target"
