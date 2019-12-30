@@ -22,6 +22,7 @@ snit::macro TclTaskRunner::Macro {} {
     option -quiet no
     option -dryrun no
     option -log-fh stdout
+    option -log-prefix "# "
     option -debug 0
     option -debug-fh stdout
 
@@ -219,7 +220,7 @@ snit::macro TclTaskRunner::Macro {} {
         if {$options(-quiet)} {
             $self dputs $depth target $target script $script
         } else {
-            puts $options(-log-fh) $script
+            puts $options(-log-fh) "$options(-log-prefix)$script"
         }
         if {!$options(-dryrun)} {
             set res [$self worker apply-to $target $script]

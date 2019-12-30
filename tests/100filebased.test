@@ -38,7 +38,7 @@ test $THEME-prepare "" {
 test $THEME-create "create TclTaskRunner instance" {
 
     set debug [TclTaskRunner::default ::env(DEBUG) 0]
-    $TYPE dep -debug $debug
+    $TYPE dep -debug $debug -log-prefix ""
 
 } ::dep
 

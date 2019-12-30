@@ -6,7 +6,7 @@
 
 
 #
-# [dep] is a toplevel TclTaskRunner object. You can refere it as $self.
+# [dep] is a toplevel TclTaskRunner object. You can refere it as $self too.
 #
 # dep add $TARGET $DEPENDS $ACTION
 #
@@ -25,7 +25,7 @@ dep add a.o {a.c a.h} {cc -c $< -o $@}
 proc cc args {exec gcc {*}$args}
 
 #
-# $self refers [dep]. This may help recursive(multi directory) tasks.
+# Again $self refers [dep]. This may help recursive(multi directory) tasks.
 #
 $self add b.o {b.c b.h} {cc -c $< -o $@}
 

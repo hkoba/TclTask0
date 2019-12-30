@@ -52,7 +52,9 @@ set fn $testItemDir/TclTask.tcl
 test customtype-tcltaskfile-run "run without arguments" {
     rename dep ""
 
-    CustomRunner toplevel $fn
+    # Note: TclTaskRunner only takes posix style long options.
+    CustomRunner toplevel --log-prefix= \
+        $fn
 
     file exists $testItemDir/prog
 } 1
@@ -60,7 +62,11 @@ test customtype-tcltaskfile-run "run without arguments" {
 test customtype-tcltaskfile-clean "run with clean" {
     rename ::dep ""
 
-    CustomRunner toplevel $fn clean
+    # Note: options can be placed between taskfile and command
+    CustomRunner toplevel \
+        $fn \
+        --log-prefix= \
+        clean
 
     file exists $testItemDir/prog
 } 0
