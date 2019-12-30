@@ -30,8 +30,8 @@ snit::macro TclTaskRunner::Macro {} {
 
     option -known-keys ""; # For user extended keys
     variable myKnownKeysDict [dict create]
-    typevariable ourRequiredKeysList [set KEYS [list depends action]]
-    typevariable ourKnownKeysList [list {*}$KEYS check]
+    typevariable ourRequiredKeysList [set KEYS [list action]]
+    typevariable ourKnownKeysList [list {*}$KEYS depends check]
 
     option -indent "  "
 
@@ -117,11 +117,14 @@ snit::macro TclTaskRunner::Macro {} {
         if {! $depth} {
             $self worker sync
         }
+
+        $self dputs $depth start updating $name
+
         dict lappend ctx examined $name
 
         set changed []
         dict set ctx visited $name 1
-        set depends [dict get $myDeps $name depends]
+        set depends [$self target depends $name]
         foreach pred $depends {
             $self dputs $depth $name depends on $pred
             if {[set v [dict-default [dict get $ctx visited] $pred 0]] == 0} {
@@ -162,7 +165,7 @@ snit::macro TclTaskRunner::Macro {} {
 
         }]} {
 
-            $self target do action ctx $name $depth
+            $self target try action ctx $name $depth
         }
         if {$contextVar eq ""} {
             set ctx
@@ -175,7 +178,7 @@ snit::macro TclTaskRunner::Macro {} {
             return $mtime
         }
         if {[dict exists $myDeps $name check]} {
-            $self target do check ctx $name $depth
+            $self target try check ctx $name $depth ""
             if {[$self context fetch-state ctx $name mtime]} {
                 return $mtime
             } else {
@@ -203,10 +206,11 @@ snit::macro TclTaskRunner::Macro {} {
 
     # synonyms of [$self target dependency $target]
     method {target deps} target {$self target dependency $target}
+    method {target depends} target {$self target dependency $target}
     method {dependency list} target {$self target dependency $target}
 
     method {target dependency} target {
-        dict get $myDeps $target depends
+        dict-default [dict get $myDeps $target] depends []
     }
 
     method forget name {
@@ -219,8 +223,11 @@ snit::macro TclTaskRunner::Macro {} {
 
     #========================================
 
-    method {target do action} {contextVar target depth} {
+    method {target try action} {contextVar target depth} {
         upvar 1 $contextVar ctx
+        
+        if {[lindex [$self target try check ctx $target $depth no] 0]} return
+
         set script [$self target script-for action $target]
         if {$options(-quiet)} {
             $self dputs $depth target $target script $script
@@ -234,29 +241,26 @@ snit::macro TclTaskRunner::Macro {} {
             $self dputs $depth ==> $res
 
             # After action, do check should be called again.
-            $self target do check ctx $target $depth
+            if {![lindex [$self target try check ctx $target $depth yes] 0]} {
+                error "postcheck failed after action $target"
+            }
 	}
         dict lappend ctx updated $target
     }
 
-    method {target script-for action} target {
-        set action [dict get $myDeps $target action]
-        set script [if {[dict exists $myDeps $target check]} {
-            list ::TclTaskRunner::DO $self \
-                check [dict get $myDeps $target check] \
-                do $action
-        } else {
-            set action
-        }]
+    method {target try check} {contextVar target depth default} {
+        if {[set script [$self target script-for check $target]] eq ""} {
+            return $default
+        }
 
-        $self script subst $target $script
-    }
-
-    method {target do check} {contextVar target depth} {
-        if {[set script [$self target script-for check $target]] eq ""} return
         upvar 1 $contextVar ctx
 
+        $self dputs $depth checking target $target
+
         set resList [$self worker apply-to $target $script]
+        
+        $self dputs $depth => target $target check-result $resList
+
         $self context set-state ctx $target check $resList
         if {$resList ne ""} {
             set rest [lassign $resList bool]
@@ -266,6 +270,12 @@ snit::macro TclTaskRunner::Macro {} {
                 $self dputs $depth target mtime is updated: $target mtime $mtime
             }
         }
+        set resList
+    }
+
+    method {target script-for action} target {
+        $self script subst $target \
+            [dict-default [dict get $myDeps $target] action ""]
     }
 
     method {target script-for check} target {
@@ -277,6 +287,9 @@ snit::macro TclTaskRunner::Macro {} {
     method {task verify} dict {
         set errors []
         set missingKeys []
+        if {![dict exists $dict depends] && ![dict exists $dict check]} {
+            lappend errors "Either depends or check is required"
+        }
         foreach k $ourRequiredKeysList {
             if {![dict exists $dict $k]} {
                 lappend missingKeys $k
@@ -368,7 +381,7 @@ snit::macro TclTaskRunner::Macro {} {
     }
     
     method {script subst} {target script args} {
-        set deps [dict get $myDeps $target depends]
+        set deps [$self target depends $target]
         string map [list \
                         \$@ $target \
                         \$< [string trim [lindex $deps 0]] \
