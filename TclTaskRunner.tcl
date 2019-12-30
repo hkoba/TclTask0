@@ -387,8 +387,8 @@ snit::macro TclTaskRunner::Macro {} {
         $type helper enable extras.tcl
 
         set self ::dep
-        $type $self {*}[$type parsePosixOpts args]\
-            -debug [default ::env(DEBUG) 0]
+        $type $self -debug [default ::env(DEBUG) 0]\
+            {*}[$type parsePosixOpts args]\
 
         if {[llength $args]} {
             set args [lassign $args taskFile]
