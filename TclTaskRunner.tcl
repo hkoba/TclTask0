@@ -80,26 +80,26 @@ snit::macro TclTaskRunner::Macro {} {
 
     #========================================
 
-    method {target add} {name args} {
-        if {[dict exists $myDeps $name]} {
-            error "Task $name is multiply defined!"
+    method {target add} {target args} {
+        if {[dict exists $myDeps $target]} {
+            error "Task $target is multiply defined!"
         }
         # XXX: [llength $args] == 1 form.
         set dict [dict create {*}$args]
         if {[set errors [$self task verify $dict]] ne ""} {
-            error "Task $name has error: $errors"
+            error "Task $target has error: $errors"
         }
-        dict set myDeps $name $dict
+        dict set myDeps $target $dict
     }
 
     # Shorthand form of target add.
-    method add {name depends {action ""} args} {
-        $self target add $name depends $depends action $action {*}$args
+    method add {target depends {action ""} args} {
+        $self target add $target depends $depends action $action {*}$args
     }
 
     #========================================
 
-    method update {name {contextVar ""} {depth 0} args} {
+    method update {target {contextVar ""} {depth 0} args} {
         if {$contextVar ne ""} {
             # Called from dependency.
             upvar 1 $contextVar ctx
@@ -107,9 +107,9 @@ snit::macro TclTaskRunner::Macro {} {
             # Root of this update.
             set ctx [$self context new {*}$args]
         }
-        if {![dict exists $myDeps $name]} {
+        if {![dict exists $myDeps $target]} {
             if {$contextVar eq ""} {
-                error "Unknown file or target: $name"
+                error "Unknown file or target: $target"
             }
             return 0
         }
@@ -118,79 +118,79 @@ snit::macro TclTaskRunner::Macro {} {
             $self worker sync
         }
 
-        $self dputs $depth start updating $name
+        $self dputs $depth start updating $target
 
-        dict lappend ctx examined $name
+        dict lappend ctx examined $target
 
         set changed []
-        dict set ctx visited $name 1
-        set depends [$self target depends $name]
+        dict set ctx visited $target 1
+        set depends [$self target depends $target]
         foreach pred $depends {
-            $self dputs $depth $name depends on $pred
+            $self dputs $depth $target depends on $pred
             if {[set v [dict-default [dict get $ctx visited] $pred 0]] == 0} {
                 $self update $pred ctx [expr {$depth+1}]
             } elseif {$v == 1} {
-                error "Task $pred and $name are circularly defined!"
+                error "Task $pred and $target are circularly defined!"
             }
 
             # If predecessor is younger than the target,
             # target should be refreshed.
-            if {[set thisMtime [$self mtime ctx $name $depth]]
+            if {[set thisMtime [$self mtime ctx $target $depth]]
                 < [set predMtime [$self mtime ctx $pred $depth]]} {
                 lappend changed $pred
             } elseif {$predMtime == -Inf && $thisMtime != -Inf} {
                 $self dputs $depth Not changed but infinitely old: $pred
                 lappend changed $pred
             } else {
-                $self dputs $depth Not changed $pred mtime $predMtime $name $thisMtime
+                $self dputs $depth Not changed $pred mtime $predMtime $target $thisMtime
             }
         }
-        dict set ctx visited $name 2
+        dict set ctx visited $target 2
 
         if {[if {[llength $changed]} {
 
-            $self yes $depth do action $name because changed=($changed)
+            $self yes $depth do action $target because changed=($changed)
 
         } elseif {[llength $depends] == 0} {
 
-            $self yes $depth do action $name because it has no dependencies
+            $self yes $depth do action $target because it has no dependencies
 
-        } elseif {[$self mtime ctx $name $depth] == -Inf} {
+        } elseif {[$self mtime ctx $target $depth] == -Inf} {
 
-            $self yes $depth do action $name because it is infinitely old
+            $self yes $depth do action $target because it is infinitely old
 
         } else {
 
-            $self no $depth No need to update $name
+            $self no $depth No need to update $target
 
         }]} {
 
-            $self target try action ctx $name $depth
+            $self target try action ctx $target $depth
         }
         if {$contextVar eq ""} {
             set ctx
         }
     }
 
-    method mtime {contextVar name depth} {
+    method mtime {contextVar target depth} {
         upvar 1 $contextVar ctx
-        if {[$self context fetch-state ctx $name mtime]} {
+        if {[$self context fetch-state ctx $target mtime]} {
             return $mtime
         }
-        if {[dict exists $myDeps $name check]} {
-            $self target try check ctx $name $depth ""
-            if {[$self context fetch-state ctx $name mtime]} {
+        if {[dict exists $myDeps $target check]} {
+            $self target try check ctx $target $depth ""
+            if {[$self context fetch-state ctx $target mtime]} {
                 return $mtime
             } else {
                 return -Inf
             }
         } else {
-            if {[$self file exists $name]} {
-                $self file mtime $name
-            } elseif {[dict exists $myDeps $name]} {
+            if {[$self file exists $target]} {
+                $self file mtime $target
+            } elseif {[dict exists $myDeps $target]} {
                 return -Inf
             } else {
-                error "Unknown node or file: $name"
+                error "Unknown node or file: $target"
             }
         }
     }
