@@ -41,13 +41,17 @@ snit::macro TclTaskRunner::Macro {} {
     variable myKnownConfig [dict create]
     variable myConfigReader ""
 
+    option -worker-depth 0
+    option -in-worker no
     variable myWorker ""
 
     #========================================
     constructor args {
-        $self worker install [from args -worker ""]
+        set worker [from args -worker ""]
 
         $self configurelist $args
+        
+        $self worker install $worker
     }
 
     method source taskFile {
@@ -355,7 +359,12 @@ snit::macro TclTaskRunner::Macro {} {
 
     method {worker install} worker {
         if {$worker eq ""} {
-            set worker [list interp eval {}]
+            set worker [if {!$options(-worker-depth) || $options(-in-worker)} {
+                list interp eval {}
+            } else {
+                # To use separate interpreter, set -worker-depth to 1
+                list [interp create] eval
+            }]
         }
 
         install myWorker using set worker
@@ -365,6 +374,12 @@ snit::macro TclTaskRunner::Macro {} {
 
     method {worker is-self} {} {
         string equal $myWorker [list interp eval {}]
+    }
+
+    method {worker gen-remote-config} {} {
+        set config [configlist $self]
+        dict set config -in-worker yes
+        dict incr config -worker-depth
     }
 
     method {worker sync} {{mode ""}} {
@@ -379,9 +394,14 @@ snit::macro TclTaskRunner::Macro {} {
 
             {*}$myWorker [${type}::definition]
             
-            {*}$myWorker [list $type $self {*}[configlist $self]]
+            {*}$myWorker [list $type $self {*}[$self worker gen-remote-config]]
         } else {
-            {*}$myWorker [list $self configurelist [configlist $self]]
+            {*}$myWorker [list $self configurelist [$self worker gen-remote-config]]
+            
+            {*}$myWorker [::namespace-util::definition $type]
+            
+            {*}$myWorker [list namespace ensemble configure $self \
+                              -map [namespace ensemble configure $self -map]]
         }
     }
     

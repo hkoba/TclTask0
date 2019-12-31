@@ -40,6 +40,8 @@ set C 0
 
 test $THEME-comm-[incr C] "construct with -worker" -body {
     
+    TclTaskRunner helper enable extras.tcl
+
     set debug [TclTaskRunner::default ::env(DEBUG) 0]
     TclTaskRunner dep -debug $debug -quiet [expr {! $debug}] \
         -worker [list comm::comm send $kidID];
@@ -78,3 +80,21 @@ test $THEME-basic-[incr C] "target update" {
     comm::comm send $kidID set varZ
 
 } 11
+
+test $THEME-snit-[incr C] "snit type and instance method migration" {
+    
+    dep method test-varA args {
+        info exists ::varA
+    }
+    
+    dep target add ensure-varA check {
+        dep test-varA
+    } action {
+        set ::varA foo
+    }
+    
+    dep update ensure-varA check
+    
+    list [comm::comm send $kidID info exists ::varA] \
+        [info exists ::varA]
+} [list 1 0]
