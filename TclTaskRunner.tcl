@@ -67,6 +67,11 @@ snit::macro TclTaskRunner::Macro {} {
         $type apply-in-ns $selfns {self type selfns} [list source $taskFile]\
             $self $type $selfns
     }
+    
+    method import taskFile {
+        $type apply-in-ns $selfns {self type selfns} [list source $taskFile]\
+            $self $type $selfns
+    }
 
     #========================================
 
@@ -102,6 +107,10 @@ snit::macro TclTaskRunner::Macro {} {
     }
 
     #========================================
+
+    method build {{target ""} args} {
+        $self update $target "" 0 {*}$args
+    }
 
     method update {{target ""} {contextVar ""} {depth 0} args} {
         if {$contextVar ne ""} {
@@ -176,9 +185,7 @@ snit::macro TclTaskRunner::Macro {} {
 
             $self target try action ctx $target $depth
         }
-        if {$contextVar eq ""} {
-            set ctx
-        }
+        set ctx
     }
 
     method mtime {contextVar target depth} {
@@ -435,9 +442,11 @@ snit::macro TclTaskRunner::Macro {} {
     }
 
     typemethod {helper enable} file {
-        set fn $TclTaskRunner::libDir/helper/$file
-
-        $type apply-in-ns :: type [list source $fn] $type
+        $type extend-by $TclTaskRunner::libDir/helper/$file
+    }
+    
+    typemethod extend-by file {
+        $type apply-in-ns :: type [list source $file] $type
     }
 
     typemethod toplevel args {
