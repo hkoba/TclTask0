@@ -386,6 +386,8 @@ snit::macro TclTaskRunner::Macro {} {
     method {worker gen-remote-config} {} {
         set config [configlist $self]
         dict set config -in-worker yes
+        dict set config -debug 0
+        dict set config -quiet yes
         dict incr config -worker-depth
     }
 
